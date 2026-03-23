@@ -379,7 +379,99 @@
     background: #333; color: #ccc;
   }
 
-  /* ===== MOBILE D-PAD ===== */
+  /* ===== FIXED MOBILE CONTROLLER ===== */
+  #mobile-controller {
+    display: none;                        /* モバイルのみ表示 */
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 200;
+    background: rgba(6, 6, 22, 0.78);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    padding: 6px 14px calc(10px + env(safe-area-inset-bottom));
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  @media (max-width: 1024px) {
+    #mobile-controller { display: flex; }
+  }
+
+  /* ハンドルバー */
+  .mc-handle {
+    width: 38px; height: 3px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 2px;
+    margin-bottom: 2px;
+  }
+
+  /* 共通ボタン行 */
+  .mc-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    max-width: 500px;
+  }
+
+  /* 区切り線 */
+  .mc-sep {
+    width: 1px; height: 48px; flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 0 6px;
+  }
+
+  /* 汎用コントローラーボタン */
+  .mc-btn {
+    flex: 1;
+    max-width: 88px;
+    height: 62px;
+    border-radius: 14px;
+    border: 1.5px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 1.55rem;
+    cursor: pointer;
+    touch-action: manipulation;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 3px;
+    transition: background 0.07s, transform 0.06s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mc-btn .mc-lbl {
+    font-size: 0.58rem;
+    color: rgba(255, 255, 255, 0.42);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .mc-btn:active { background: rgba(255,255,255,0.2); transform: scale(0.91); }
+
+  /* 幅広ボタン（手動モード用） */
+  .mc-btn-wide { flex: 2; max-width: 220px; font-size: 1.3rem; height: 66px; border-radius: 16px; }
+
+  /* 色バリエーション */
+  .mc-btn-blue   { border-color: rgba(127,209,255,0.3); color: #7fd1ff; }
+  .mc-btn-blue   .mc-lbl { color: rgba(127,209,255,0.5); }
+  .mc-btn-blue:active   { background: rgba(127,209,255,0.1); }
+
+  .mc-btn-red    { border-color: rgba(231,76,60,0.3); color: #ff8a7a; }
+  .mc-btn-red    .mc-lbl { color: rgba(231,76,60,0.5); }
+  .mc-btn-red:active    { background: rgba(231,76,60,0.1); }
+
+  .mc-btn-purple { border-color: rgba(171,71,188,0.35); color: #ce93d8; }
+  .mc-btn-purple .mc-lbl { color: rgba(171,71,188,0.5); }
+  .mc-btn-purple:active { background: rgba(171,71,188,0.12); }
+
+  .mc-btn-green  { border-color: rgba(46,204,113,0.35); color: #2ecc71; font-weight: bold; }
+  .mc-btn-green  .mc-lbl { color: rgba(46,204,113,0.55); }
+  .mc-btn-green:active  { background: rgba(46,204,113,0.12); }
+
+  /* ===== MOBILE D-PAD (legacy, hidden) ===== */
   #mobile-dpad {
     display: none;        /* JS + media query で制御 */
     flex-direction: column;
@@ -487,13 +579,10 @@
     .score-val      { font-size: 1.4rem; }
     #info           { display: none; }
 
-    /* モバイルDパッド: activeクラスで表示 */
-    #mobile-dpad.active { display: flex; }
-  }
-
-  /* タブレット (769px – 1024px): レイアウトはPCのままDパッドだけ出す */
-  @media (min-width: 769px) and (max-width: 1024px) {
-    #mobile-dpad.active { display: flex; max-width: 360px; }
+    /* 旧インラインDパッドは非表示（新固定コントローラーに置き換え） */
+    #mobile-dpad { display: none !important; }
+    /* コントローラー分の余白 */
+    body { padding-bottom: calc(130px + env(safe-area-inset-bottom)) !important; }
   }
 </style>
 </head>
@@ -838,42 +927,50 @@ function onBoardTouchCancel(e) {
   renderBoard();
 }
 
-// ==================== MOBILE D-PAD SETUP ====================
-function setupMobileDpad() {
-  let repeatTimer = null;
+// ==================== MOBILE CONTROLLER SETUP ====================
+let _mcRepeat = null;
 
-  // 長押しリピート（移動系）
-  function addRepeat(id, action) {
-    const btn = document.getElementById(id);
-    if (!btn) return;
-    const start = (e) => {
-      e.preventDefault();
-      action();
-      clearInterval(repeatTimer);
-      repeatTimer = setInterval(action, 110);
-    };
-    const stop = (e) => { e.preventDefault(); clearInterval(repeatTimer); };
-    btn.addEventListener('touchstart', start, { passive: false });
-    btn.addEventListener('touchend',   stop,  { passive: false });
-    btn.addEventListener('touchcancel',stop,  { passive: false });
-    btn.addEventListener('mousedown',  start);
-    btn.addEventListener('mouseup',    stop);
-    btn.addEventListener('mouseleave', stop);
-  }
+function _mcAddRepeat(id, action) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  const start = (e) => {
+    e.preventDefault();
+    action();
+    clearInterval(_mcRepeat);
+    _mcRepeat = setInterval(action, 105);
+  };
+  const stop = (e) => { e.preventDefault(); clearInterval(_mcRepeat); };
+  btn.addEventListener('touchstart',  start, { passive: false });
+  btn.addEventListener('touchend',    stop,  { passive: false });
+  btn.addEventListener('touchcancel', stop,  { passive: false });
+  btn.addEventListener('mousedown',   start);
+  btn.addEventListener('mouseup',     stop);
+  btn.addEventListener('mouseleave',  stop);
+}
 
-  // シングルタップ（回転・ハードドロップ）
-  function addSingle(id, action) {
-    const btn = document.getElementById(id);
-    if (!btn) return;
-    btn.addEventListener('touchstart', (e) => { e.preventDefault(); action(); }, { passive: false });
-    btn.addEventListener('mousedown',  () => action());
-  }
+function _mcAddSingle(id, action) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  btn.addEventListener('touchstart', (e) => { e.preventDefault(); action(); }, { passive: false });
+  btn.addEventListener('mousedown',  () => action());
+}
 
-  addRepeat('dpad-left',   moveActiveLeft);
-  addRepeat('dpad-right',  moveActiveRight);
-  addRepeat('dpad-down',   moveActiveDown);
-  addSingle('dpad-rotate', rotateActive);
-  addSingle('dpad-drop',   hardDrop);
+function setupMobileController() {
+  // 手動モード
+  _mcAddSingle('mc-rotate', rotatePiece);
+  _mcAddSingle('mc-undo',   undoLast);
+  // 自動モード
+  _mcAddRepeat('mc-left',   moveActiveLeft);
+  _mcAddRepeat('mc-right',  moveActiveRight);
+  _mcAddRepeat('mc-down',   moveActiveDown);
+  _mcAddSingle('mc-rot',    rotateActive);
+  _mcAddSingle('mc-drop',   hardDrop);
+}
+
+function updateMobileController() {
+  const isAuto = gameMode === 'auto';
+  document.getElementById('mc-manual').style.display = isAuto ? 'none' : 'flex';
+  document.getElementById('mc-auto').style.display   = isAuto ? 'flex' : 'none';
 }
 
 function onBoardHover(e) {
@@ -1217,8 +1314,7 @@ function updateAutoUI() {
   document.getElementById('board').style.cursor =
     isAuto ? 'default' : (countEnabled && placementCount === 0 ? 'not-allowed' : 'crosshair');
   if (isAuto) document.getElementById('level-val').textContent = level;
-  // モバイルDパッド: 自動モード時に active クラスで表示（CSS media query が画面サイズを判定）
-  document.getElementById('mobile-dpad').classList.toggle('active', isAuto);
+  updateMobileController();
 }
 
 // ===== PLACEMENT COUNT =====
@@ -1453,8 +1549,35 @@ initBoard();
 buildBoardDOM();
 buildPieceList();
 updateCountUI();
-setupMobileDpad();
+setupMobileController();
+updateMobileController();
 renderBoard();
 </script>
+
+<!-- ===== FIXED MOBILE CONTROLLER ===== -->
+<div id="mobile-controller">
+  <div class="mc-handle"></div>
+
+  <!-- 手動モード: 回転 + Undo -->
+  <div class="mc-row" id="mc-manual">
+    <button class="mc-btn mc-btn-wide mc-btn-blue" id="mc-rotate">
+      ↻ <span class="mc-lbl">回転</span>
+    </button>
+    <button class="mc-btn mc-btn-wide mc-btn-red" id="mc-undo">
+      ↩ <span class="mc-lbl">元に戻す</span>
+    </button>
+  </div>
+
+  <!-- 自動モード: Dパッド + ドロップ -->
+  <div class="mc-row" id="mc-auto" style="display:none">
+    <button class="mc-btn" id="mc-left">◀<span class="mc-lbl">左</span></button>
+    <button class="mc-btn mc-btn-purple" id="mc-rot">↻<span class="mc-lbl">回転</span></button>
+    <button class="mc-btn" id="mc-right">▶<span class="mc-lbl">右</span></button>
+    <div class="mc-sep"></div>
+    <button class="mc-btn" id="mc-down">▼<span class="mc-lbl">下</span></button>
+    <button class="mc-btn mc-btn-green" id="mc-drop">⬇<span class="mc-lbl">DROP</span></button>
+  </div>
+</div>
+
 </body>
 </html>
