@@ -706,6 +706,31 @@
   </div>
 </div>
 
+<!-- ===== FIXED MOBILE CONTROLLER (must be before <script> so elements exist at setup time) ===== -->
+<div id="mobile-controller">
+  <div class="mc-handle"></div>
+
+  <!-- 手動モード: 回転 + Undo -->
+  <div class="mc-row" id="mc-manual">
+    <button class="mc-btn mc-btn-wide mc-btn-blue" id="mc-rotate">
+      ↻ <span class="mc-lbl">回転</span>
+    </button>
+    <button class="mc-btn mc-btn-wide mc-btn-red" id="mc-undo">
+      ↩ <span class="mc-lbl">元に戻す</span>
+    </button>
+  </div>
+
+  <!-- 自動モード: Dパッド + ドロップ -->
+  <div class="mc-row" id="mc-auto" style="display:none">
+    <button class="mc-btn" id="mc-left">◀<span class="mc-lbl">左</span></button>
+    <button class="mc-btn mc-btn-purple" id="mc-rot">↻<span class="mc-lbl">回転</span></button>
+    <button class="mc-btn" id="mc-right">▶<span class="mc-lbl">右</span></button>
+    <div class="mc-sep"></div>
+    <button class="mc-btn" id="mc-down">▼<span class="mc-lbl">下</span></button>
+    <button class="mc-btn mc-btn-green" id="mc-drop">⬇<span class="mc-lbl">DROP</span></button>
+  </div>
+</div>
+
 <script>
 const COLS = 10, ROWS = 20;
 // 実際の描画セルサイズ（CSS --cell に従って動的に変わる）
@@ -1553,31 +1578,6 @@ setupMobileController();
 updateMobileController();
 renderBoard();
 </script>
-
-<!-- ===== FIXED MOBILE CONTROLLER ===== -->
-<div id="mobile-controller">
-  <div class="mc-handle"></div>
-
-  <!-- 手動モード: 回転 + Undo -->
-  <div class="mc-row" id="mc-manual">
-    <button class="mc-btn mc-btn-wide mc-btn-blue" id="mc-rotate">
-      ↻ <span class="mc-lbl">回転</span>
-    </button>
-    <button class="mc-btn mc-btn-wide mc-btn-red" id="mc-undo">
-      ↩ <span class="mc-lbl">元に戻す</span>
-    </button>
-  </div>
-
-  <!-- 自動モード: Dパッド + ドロップ -->
-  <div class="mc-row" id="mc-auto" style="display:none">
-    <button class="mc-btn" id="mc-left">◀<span class="mc-lbl">左</span></button>
-    <button class="mc-btn mc-btn-purple" id="mc-rot">↻<span class="mc-lbl">回転</span></button>
-    <button class="mc-btn" id="mc-right">▶<span class="mc-lbl">右</span></button>
-    <div class="mc-sep"></div>
-    <button class="mc-btn" id="mc-down">▼<span class="mc-lbl">下</span></button>
-    <button class="mc-btn mc-btn-green" id="mc-drop">⬇<span class="mc-lbl">DROP</span></button>
-  </div>
-</div>
 
 </body>
 </html>
