@@ -2,8 +2,10 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>手動テトリス</title>
 <style>
+  :root { --cell: 32px; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     background: #1a1a2e;
@@ -37,17 +39,19 @@
 
   #board {
     display: grid;
-    grid-template-columns: repeat(10, 32px);
-    grid-template-rows: repeat(20, 32px);
+    grid-template-columns: repeat(10, var(--cell));
+    grid-template-rows: repeat(20, var(--cell));
     border: 2px solid #444;
     background: #0d0d1a;
     cursor: crosshair;
     user-select: none;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .cell {
-    width: 32px;
-    height: 32px;
+    width: var(--cell);
+    height: var(--cell);
     border: 1px solid #1c1c30;
     transition: background 0.05s;
   }
@@ -374,13 +378,130 @@
   #gameover button.secondary {
     background: #333; color: #ccc;
   }
+
+  /* ===== MOBILE D-PAD ===== */
+  #mobile-dpad {
+    display: none;        /* JS + media query で制御 */
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 400px;
+    padding: 14px 12px;
+    background: #0e0e1e;
+    border: 1px solid #252535;
+    border-radius: 16px;
+    margin-top: 4px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .dpad-title {
+    font-size: 0.65rem; color: #555;
+    text-transform: uppercase; letter-spacing: 2px;
+  }
+  .dpad-row { display: flex; gap: 10px; justify-content: center; width: 100%; }
+  .dpad-btn {
+    flex: 1;
+    max-width: 90px;
+    height: 64px;
+    border-radius: 12px;
+    border: 2px solid #333;
+    background: #16213e;
+    color: #eee;
+    font-size: 1.6rem;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    transition: background 0.08s, transform 0.06s;
+    touch-action: manipulation;
+  }
+  .dpad-btn:active    { background: #2a4080; transform: scale(0.92); }
+  .dpad-btn.btn-rot   { border-color: #ab47bc; color: #ce93d8; }
+  .dpad-btn.btn-rot:active   { background: #2a1040; }
+  .dpad-btn.btn-drop  { border-color: #27ae60; color: #2ecc71; font-size: 1rem; font-weight: bold; }
+  .dpad-btn.btn-drop:active  { background: #0d2e1a; }
+  .dpad-btn .dpad-label { font-size: 0.6rem; color: #888; display: block; line-height: 1; }
+
+  /* ===== RESPONSIVE: MOBILE (≤ 768px) ===== */
+  @media (max-width: 768px) {
+    :root { --cell: min(32px, calc((100vw - 20px) / 10)); }
+
+    body { padding: 8px 8px 20px; gap: 8px; flex-direction: column; align-items: center; }
+    h1   { font-size: 1.1rem; margin-bottom: 6px; }
+
+    /* メインエリア縦並び */
+    #main-row { flex-direction: column !important; align-items: center !important; gap: 10px !important; }
+
+    /* 右パネルを横並びに */
+    .right-panel {
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: center;
+      min-width: unset;
+      width: 100%;
+      max-width: 420px;
+      gap: 8px;
+    }
+
+    /* モードバッジ・スタートボタン */
+    .mode-badge      { font-size: 0.65rem; padding: 3px 0; }
+    #start-auto-btn  { font-size: 0.85rem; padding: 9px; }
+
+    /* 自動モードセクション */
+    #auto-section    { flex-direction: row; flex-wrap: wrap; gap: 8px; justify-content: center; width: 100%; }
+    .next-box        { padding: 8px; }
+    .auto-hint       { display: none; }
+    #stop-auto-btn   { font-size: 0.75rem; padding: 7px; }
+
+    /* ブロックセレクター: 横スクロール */
+    #manual-section  { width: 100%; }
+    #piece-list {
+      flex-direction: row;
+      overflow-x: auto;
+      gap: 5px;
+      padding-bottom: 4px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    #piece-list::-webkit-scrollbar { display: none; }
+    .piece-btn  {
+      flex-shrink: 0;
+      flex-direction: column;
+      align-items: center;
+      padding: 7px 6px;
+      gap: 5px;
+      min-width: 54px;
+    }
+    .piece-name { font-size: 0.68rem; }
+
+    /* 操作ボタン横並び */
+    .controls { flex-direction: row; flex-wrap: wrap; gap: 6px; justify-content: center; width: 100%; }
+    button.ctrl { width: auto; padding: 9px 12px; font-size: 0.8rem; }
+
+    /* カウント・スコア */
+    #count-section  { width: 100%; max-width: 200px; }
+    .count-box      { padding: 8px 10px; }
+    .count-val      { font-size: 2rem; min-width: 38px; }
+    .count-btn      { width: 30px; height: 30px; font-size: 1.1rem; }
+    .score-box      { padding: 8px 12px; }
+    .score-val      { font-size: 1.4rem; }
+    #info           { display: none; }
+
+    /* モバイルDパッド: activeクラスで表示 */
+    #mobile-dpad.active { display: flex; }
+  }
+
+  /* タブレット (769px – 1024px): レイアウトはPCのままDパッドだけ出す */
+  @media (min-width: 769px) and (max-width: 1024px) {
+    #mobile-dpad.active { display: flex; max-width: 360px; }
+  }
 </style>
 </head>
 <body>
 
 <div class="panel">
   <h1>手動テトリス</h1>
-  <div style="display:flex; gap:16px; align-items:flex-start;">
+  <div id="main-row" style="display:flex; gap:16px; align-items:flex-start;">
 
     <!-- Board -->
     <div id="board-wrap">
@@ -480,10 +601,28 @@
       <div id="info">ブロックを選んで<br>盤面をクリックで設置<br>横一列が埋まると消去！</div>
     </div>
   </div>
+
+  <!-- Mobile D-Pad: 自動モード時にスマホ/タブレットで表示 -->
+  <div id="mobile-dpad">
+    <div class="dpad-title">操作ボタン</div>
+    <div class="dpad-row">
+      <button class="dpad-btn" id="dpad-left">◀</button>
+      <button class="dpad-btn btn-rot" id="dpad-rotate">↻<span class="dpad-label">回転</span></button>
+      <button class="dpad-btn" id="dpad-right">▶</button>
+    </div>
+    <div class="dpad-row">
+      <button class="dpad-btn" id="dpad-down" style="max-width:120px;">▼<span class="dpad-label">下へ</span></button>
+      <button class="dpad-btn btn-drop" id="dpad-drop">⬇ HARD DROP</button>
+    </div>
+  </div>
 </div>
 
 <script>
-const COLS = 10, ROWS = 20, CELL_SIZE = 32;
+const COLS = 10, ROWS = 20;
+// 実際の描画セルサイズ（CSS --cell に従って動的に変わる）
+function getCellSize() {
+  return document.getElementById('board').getBoundingClientRect().width / COLS;
+}
 
 const PIECES = [
   { name: 'I', color: '#00bcd4', shapes: [[[1,1,1,1]],[[1],[1],[1],[1]]] },
@@ -511,6 +650,9 @@ let selectedPiece = 0, rotation = 0;
 let hoverCol = -1, hoverRow = -1;
 let placementCount = 0, countEnabled = false;
 let history = [];
+
+// ===== TOUCH STATE =====
+let touchRow = -1, touchCol = -1;
 
 // ===== COUNTDOWN STATE =====
 let cdValue = -1;          // 現在のカウント (-1 = 非アクティブ)
@@ -542,9 +684,14 @@ function buildBoardDOM() {
       cells[r][c] = cell;
     }
   }
-  boardEl.addEventListener('mousemove', onBoardHover);
+  boardEl.addEventListener('mousemove',  onBoardHover);
   boardEl.addEventListener('mouseleave', onBoardLeave);
-  boardEl.addEventListener('click', onBoardClick);
+  boardEl.addEventListener('click',      onBoardClick);
+  // タッチ操作（スマホ/タブレット用）
+  boardEl.addEventListener('touchstart',  onBoardTouchStart,  { passive: false });
+  boardEl.addEventListener('touchmove',   onBoardTouchMove,   { passive: false });
+  boardEl.addEventListener('touchend',    onBoardTouchEnd,    { passive: false });
+  boardEl.addEventListener('touchcancel', onBoardTouchCancel, { passive: false });
 }
 
 // ==================== RENDER ====================
@@ -639,11 +786,102 @@ function placeManualPiece(originR, originC) {
     }
 }
 
+// ==================== TOUCH HANDLERS ====================
+function getTouchCell(e) {
+  const touch = e.touches[0] || e.changedTouches[0];
+  const rect  = e.currentTarget.getBoundingClientRect();
+  const cs    = getCellSize();
+  const col   = Math.max(0, Math.min(COLS - 1, Math.floor((touch.clientX - rect.left) / cs)));
+  const row   = Math.max(0, Math.min(ROWS - 1, Math.floor((touch.clientY - rect.top)  / cs)));
+  return { row, col };
+}
+
+function onBoardTouchStart(e) {
+  if (gameMode === 'auto') return;
+  e.preventDefault();
+  const { row, col } = getTouchCell(e);
+  touchRow = row; touchCol = col;
+  const { r, c } = getPieceOrigin(row, col);
+  renderBoard(getManualGhostCells(r, c));
+}
+
+function onBoardTouchMove(e) {
+  if (gameMode === 'auto') return;
+  e.preventDefault();
+  const { row, col } = getTouchCell(e);
+  if (row === touchRow && col === touchCol) return; // 変化なし
+  touchRow = row; touchCol = col;
+  const { r, c } = getPieceOrigin(row, col);
+  renderBoard(getManualGhostCells(r, c));
+}
+
+function onBoardTouchEnd(e) {
+  if (gameMode === 'auto' || touchRow < 0) return;
+  e.preventDefault();
+  const { r, c } = getPieceOrigin(touchRow, touchCol);
+  touchRow = touchCol = -1;
+
+  if (!canPlaceManual(r, c)) { renderBoard(); return; }
+  if (countEnabled && placementCount <= 0) { flashCountBox(); renderBoard(); return; }
+
+  history.push({ board: board.map(row => [...row]), score, totalLines, placementCount });
+  if (history.length > 30) history.shift();
+  placeManualPiece(r, c);
+  if (countEnabled) { placementCount--; updateCountUI(); }
+  stopCountdown();
+  clearLines(() => renderBoard());
+  renderBoard();
+}
+
+function onBoardTouchCancel(e) {
+  touchRow = touchCol = -1;
+  renderBoard();
+}
+
+// ==================== MOBILE D-PAD SETUP ====================
+function setupMobileDpad() {
+  let repeatTimer = null;
+
+  // 長押しリピート（移動系）
+  function addRepeat(id, action) {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    const start = (e) => {
+      e.preventDefault();
+      action();
+      clearInterval(repeatTimer);
+      repeatTimer = setInterval(action, 110);
+    };
+    const stop = (e) => { e.preventDefault(); clearInterval(repeatTimer); };
+    btn.addEventListener('touchstart', start, { passive: false });
+    btn.addEventListener('touchend',   stop,  { passive: false });
+    btn.addEventListener('touchcancel',stop,  { passive: false });
+    btn.addEventListener('mousedown',  start);
+    btn.addEventListener('mouseup',    stop);
+    btn.addEventListener('mouseleave', stop);
+  }
+
+  // シングルタップ（回転・ハードドロップ）
+  function addSingle(id, action) {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); action(); }, { passive: false });
+    btn.addEventListener('mousedown',  () => action());
+  }
+
+  addRepeat('dpad-left',   moveActiveLeft);
+  addRepeat('dpad-right',  moveActiveRight);
+  addRepeat('dpad-down',   moveActiveDown);
+  addSingle('dpad-rotate', rotateActive);
+  addSingle('dpad-drop',   hardDrop);
+}
+
 function onBoardHover(e) {
   if (gameMode === 'auto') return;
   const rect = e.currentTarget.getBoundingClientRect();
-  hoverCol = Math.floor((e.clientX - rect.left) / CELL_SIZE);
-  hoverRow = Math.floor((e.clientY - rect.top)  / CELL_SIZE);
+  const cs = getCellSize();
+  hoverCol = Math.floor((e.clientX - rect.left) / cs);
+  hoverRow = Math.floor((e.clientY - rect.top)  / cs);
   const {r, c} = getPieceOrigin(hoverRow, hoverCol);
   renderBoard(getManualGhostCells(r, c));
 }
@@ -657,8 +895,9 @@ function onBoardLeave() {
 function onBoardClick(e) {
   if (gameMode === 'auto') return;
   const rect = e.currentTarget.getBoundingClientRect();
-  const clickCol = Math.floor((e.clientX - rect.left) / CELL_SIZE);
-  const clickRow = Math.floor((e.clientY - rect.top)  / CELL_SIZE);
+  const cs = getCellSize();
+  const clickCol = Math.floor((e.clientX - rect.left) / cs);
+  const clickRow = Math.floor((e.clientY - rect.top)  / cs);
   const {r, c} = getPieceOrigin(clickRow, clickCol);
   if (!canPlaceManual(r, c)) return;
 
@@ -978,6 +1217,8 @@ function updateAutoUI() {
   document.getElementById('board').style.cursor =
     isAuto ? 'default' : (countEnabled && placementCount === 0 ? 'not-allowed' : 'crosshair');
   if (isAuto) document.getElementById('level-val').textContent = level;
+  // モバイルDパッド: 自動モード時に active クラスで表示（CSS media query が画面サイズを判定）
+  document.getElementById('mobile-dpad').classList.toggle('active', isAuto);
 }
 
 // ===== PLACEMENT COUNT =====
@@ -1212,6 +1453,7 @@ initBoard();
 buildBoardDOM();
 buildPieceList();
 updateCountUI();
+setupMobileDpad();
 renderBoard();
 </script>
 </body>
