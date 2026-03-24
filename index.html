@@ -1018,10 +1018,9 @@ function manualConfirm() {
     return;
   }
 
-  // ライン消去 → 同ピースで再スポーン
+  // ライン消去 → 同ピースで再スポーン（カウントダウンは再起動しない）
   clearLines(() => {
     spawnManualPiece(selectedPiece, 0);
-    startCountdown();
     renderBoard();
   });
 }
@@ -1622,7 +1621,6 @@ function autoPlacePiece() {
 
   clearLines(() => {
     spawnManualPiece(selectedPiece, 0);
-    startCountdown();
     renderBoard();
   });
   renderBoard();
