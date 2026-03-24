@@ -710,14 +710,14 @@
 <div id="mobile-controller">
   <div class="mc-handle"></div>
 
-  <!-- 手動モード: 回転 + Undo -->
+  <!-- 手動モード: 移動 + 回転 + 設置 -->
   <div class="mc-row" id="mc-manual">
-    <button class="mc-btn mc-btn-wide mc-btn-blue" id="mc-rotate">
-      ↻ <span class="mc-lbl">回転</span>
-    </button>
-    <button class="mc-btn mc-btn-wide mc-btn-red" id="mc-undo">
-      ↩ <span class="mc-lbl">元に戻す</span>
-    </button>
+    <button class="mc-btn" id="mc-m-left">◀<span class="mc-lbl">左</span></button>
+    <button class="mc-btn mc-btn-purple" id="mc-m-rot">↻<span class="mc-lbl">回転</span></button>
+    <button class="mc-btn" id="mc-m-right">▶<span class="mc-lbl">右</span></button>
+    <div class="mc-sep"></div>
+    <button class="mc-btn" id="mc-m-down">▼<span class="mc-lbl">下</span></button>
+    <button class="mc-btn mc-btn-green" id="mc-m-confirm">✓<span class="mc-lbl">設置</span></button>
   </div>
 
   <!-- 自動モード: Dパッド + ドロップ -->
@@ -764,6 +764,7 @@ let selectedPiece = 0, rotation = 0;
 let hoverCol = -1, hoverRow = -1;
 let placementCount = 0, countEnabled = false;
 let history = [];
+let manualPiece = null; // { pidx, rot, row, col } 手動モードのアクティブピース
 
 // ===== TOUCH STATE =====
 let touchRow = -1, touchCol = -1;
@@ -809,20 +810,27 @@ function buildBoardDOM() {
 }
 
 // ==================== RENDER ====================
-function renderBoard(manualGhostCells = []) {
-  const manualGhostSet = new Set(manualGhostCells.map(({r,c}) => `${r},${c}`));
-
-  // Active piece (auto mode)
+function renderBoard() {
+  // Auto mode: active piece
   const activeCells = getActiveCells();
   const activeCellSet = new Set(activeCells.map(({r,c}) => `${r},${c}`));
   const activeColor = activePiece ? PIECES[activePiece.pidx].color : null;
 
-  // Ghost (auto mode)
+  // Auto mode: ghost
   const autoGhostCells = (gameMode === 'auto' && activePiece) ? getAutoGhostCells() : [];
   const autoGhostSet = new Set(
-    autoGhostCells
-      .filter(({r,c}) => !activeCellSet.has(`${r},${c}`))
-      .map(({r,c}) => `${r},${c}`)
+    autoGhostCells.filter(({r,c}) => !activeCellSet.has(`${r},${c}`)).map(({r,c}) => `${r},${c}`)
+  );
+
+  // Manual mode: active piece
+  const manualCells = getManualPieceCells();
+  const manualCellSet = new Set(manualCells.map(({r,c}) => `${r},${c}`));
+  const manualColor = manualPiece ? PIECES[manualPiece.pidx].color : null;
+
+  // Manual mode: drop shadow
+  const manualShadow = getManualDropShadow();
+  const manualShadowSet = new Set(
+    manualShadow.filter(({r,c}) => !manualCellSet.has(`${r},${c}`)).map(({r,c}) => `${r},${c}`)
   );
 
   for (let r = 0; r < ROWS; r++) {
@@ -841,8 +849,11 @@ function renderBoard(manualGhostCells = []) {
         el.style.background = activeColor;
         el.style.boxShadow = '';
         el.classList.add('ghost');
-      } else if (manualGhostSet.has(key)) {
-        el.style.background = PIECES[selectedPiece].color;
+      } else if (manualCellSet.has(key)) {
+        el.style.background = manualColor;
+        el.style.boxShadow = 'inset 0 0 0 2px rgba(255,255,255,0.25)';
+      } else if (manualShadowSet.has(key)) {
+        el.style.background = manualColor;
         el.style.boxShadow = '';
         el.classList.add('ghost');
       } else {
@@ -859,7 +870,9 @@ function getManualShape() {
 }
 
 function getPieceOrigin(clickRow, clickCol) {
-  const shape = getManualShape();
+  const shape = manualPiece
+    ? PIECES[manualPiece.pidx].shapes[manualPiece.rot % PIECES[manualPiece.pidx].shapes.length]
+    : getManualShape();
   const h = shape.length, w = shape[0].length;
   let r = Math.max(0, Math.min(ROWS - h, clickRow - Math.floor(h / 2)));
   let c = Math.max(0, Math.min(COLS - w, clickCol - Math.floor(w / 2)));
@@ -900,6 +913,119 @@ function placeManualPiece(originR, originC) {
     }
 }
 
+// 汎用設置チェック（pidx/rot/row/col を明示指定）
+function canPlaceAt(pidx, rot, row, col) {
+  const shape = PIECES[pidx].shapes[rot % PIECES[pidx].shapes.length];
+  for (let dr = 0; dr < shape.length; dr++)
+    for (let dc = 0; dc < shape[dr].length; dc++) {
+      if (!shape[dr][dc]) continue;
+      const nr = row + dr, nc = col + dc;
+      if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) return false;
+      if (board[nr][nc]) return false;
+    }
+  return true;
+}
+
+// manualPiece が占めるセル一覧
+function getManualPieceCells() {
+  if (!manualPiece) return [];
+  const shape = PIECES[manualPiece.pidx].shapes[manualPiece.rot % PIECES[manualPiece.pidx].shapes.length];
+  const result = [];
+  for (let dr = 0; dr < shape.length; dr++)
+    for (let dc = 0; dc < shape[dr].length; dc++) {
+      if (!shape[dr][dc]) continue;
+      result.push({ r: manualPiece.row + dr, c: manualPiece.col + dc });
+    }
+  return result;
+}
+
+// manualPiece の落下先ゴースト（ドロップシャドウ）
+function getManualDropShadow() {
+  if (!manualPiece) return [];
+  let testRow = manualPiece.row;
+  while (canPlaceAt(manualPiece.pidx, manualPiece.rot, testRow + 1, manualPiece.col))
+    testRow++;
+  if (testRow === manualPiece.row) return [];
+  const shape = PIECES[manualPiece.pidx].shapes[manualPiece.rot % PIECES[manualPiece.pidx].shapes.length];
+  const result = [];
+  for (let dr = 0; dr < shape.length; dr++)
+    for (let dc = 0; dc < shape[dr].length; dc++) {
+      if (!shape[dr][dc]) continue;
+      result.push({ r: testRow + dr, c: manualPiece.col + dc });
+    }
+  return result;
+}
+
+// manualPiece をフィールド上部中央に出現させる
+function spawnManualPiece(pidx, rot) {
+  rot = (rot || 0) % PIECES[pidx].shapes.length;
+  const shape = PIECES[pidx].shapes[rot];
+  const col = Math.floor((COLS - shape[0].length) / 2);
+  manualPiece = { pidx, rot, row: 0, col };
+  rotation = rot;
+}
+
+// 手動モード: コントローラーで1マス移動
+function manualMoveLeft() {
+  if (!manualPiece || gameMode === 'auto') return;
+  if (canPlaceAt(manualPiece.pidx, manualPiece.rot, manualPiece.row, manualPiece.col - 1))
+    manualPiece.col--;
+  renderBoard();
+}
+function manualMoveRight() {
+  if (!manualPiece || gameMode === 'auto') return;
+  if (canPlaceAt(manualPiece.pidx, manualPiece.rot, manualPiece.row, manualPiece.col + 1))
+    manualPiece.col++;
+  renderBoard();
+}
+function manualMoveDown() {
+  if (!manualPiece || gameMode === 'auto') return;
+  if (canPlaceAt(manualPiece.pidx, manualPiece.rot, manualPiece.row + 1, manualPiece.col))
+    manualPiece.row++;
+  renderBoard();
+}
+
+// 手動モード: 現在位置にピースを設置確定
+function manualConfirm() {
+  if (!manualPiece || gameMode === 'auto') return;
+  const { pidx, rot, row, col } = manualPiece;
+  if (!canPlaceAt(pidx, rot, row, col)) return;
+  if (countEnabled && placementCount <= 0) { flashCountBox(); return; }
+
+  history.push({
+    board: board.map(r => [...r]),
+    score, totalLines, placementCount,
+    savedManualPiece: { ...manualPiece }
+  });
+  if (history.length > 30) history.shift();
+
+  // ボードに書き込み
+  const shape = PIECES[pidx].shapes[rot % PIECES[pidx].shapes.length];
+  const color = PIECES[pidx].color;
+  for (let dr = 0; dr < shape.length; dr++)
+    for (let dc = 0; dc < shape[dr].length; dc++)
+      if (shape[dr][dc]) board[row + dr][col + dc] = color;
+
+  if (countEnabled) { placementCount--; updateCountUI(); }
+  stopCountdown();
+  manualPiece = null;
+
+  // ゲームオーバー判定（上段が埋まった場合）
+  if (board[0].some(c => c) || board[1].some(c => c)) {
+    renderBoard();
+    document.getElementById('gameover').classList.add('show');
+    document.getElementById('go-score').textContent = `スコア: ${score}`;
+    return;
+  }
+
+  // ライン消去 → 同ピースで再スポーン
+  clearLines(() => {
+    spawnManualPiece(selectedPiece, 0);
+    startCountdown();
+    renderBoard();
+  });
+}
+
 // ==================== TOUCH HANDLERS ====================
 function getTouchCell(e) {
   const touch = e.touches[0] || e.changedTouches[0];
@@ -915,36 +1041,31 @@ function onBoardTouchStart(e) {
   e.preventDefault();
   const { row, col } = getTouchCell(e);
   touchRow = row; touchCol = col;
-  const { r, c } = getPieceOrigin(row, col);
-  renderBoard(getManualGhostCells(r, c));
+  if (manualPiece) {
+    const { r, c } = getPieceOrigin(row, col);
+    manualPiece.row = r; manualPiece.col = c;
+    renderBoard();
+  }
 }
 
 function onBoardTouchMove(e) {
   if (gameMode === 'auto') return;
   e.preventDefault();
   const { row, col } = getTouchCell(e);
-  if (row === touchRow && col === touchCol) return; // 変化なし
+  if (row === touchRow && col === touchCol) return;
   touchRow = row; touchCol = col;
-  const { r, c } = getPieceOrigin(row, col);
-  renderBoard(getManualGhostCells(r, c));
+  if (manualPiece) {
+    const { r, c } = getPieceOrigin(row, col);
+    manualPiece.row = r; manualPiece.col = c;
+    renderBoard();
+  }
 }
 
 function onBoardTouchEnd(e) {
   if (gameMode === 'auto' || touchRow < 0) return;
   e.preventDefault();
-  const { r, c } = getPieceOrigin(touchRow, touchCol);
   touchRow = touchCol = -1;
-
-  if (!canPlaceManual(r, c)) { renderBoard(); return; }
-  if (countEnabled && placementCount <= 0) { flashCountBox(); renderBoard(); return; }
-
-  history.push({ board: board.map(row => [...row]), score, totalLines, placementCount });
-  if (history.length > 30) history.shift();
-  placeManualPiece(r, c);
-  if (countEnabled) { placementCount--; updateCountUI(); }
-  stopCountdown();
-  clearLines(() => renderBoard());
-  renderBoard();
+  manualConfirm();
 }
 
 function onBoardTouchCancel(e) {
@@ -981,9 +1102,12 @@ function _mcAddSingle(id, action) {
 }
 
 function setupMobileController() {
-  // 手動モード
-  _mcAddSingle('mc-rotate', rotatePiece);
-  _mcAddSingle('mc-undo',   undoLast);
+  // 手動モード（移動・回転・設置）
+  _mcAddRepeat('mc-m-left',    manualMoveLeft);
+  _mcAddRepeat('mc-m-right',   manualMoveRight);
+  _mcAddRepeat('mc-m-down',    manualMoveDown);
+  _mcAddSingle('mc-m-rot',     rotatePiece);
+  _mcAddSingle('mc-m-confirm', manualConfirm);
   // 自動モード
   _mcAddRepeat('mc-left',   moveActiveLeft);
   _mcAddRepeat('mc-right',  moveActiveRight);
@@ -1004,8 +1128,11 @@ function onBoardHover(e) {
   const cs = getCellSize();
   hoverCol = Math.floor((e.clientX - rect.left) / cs);
   hoverRow = Math.floor((e.clientY - rect.top)  / cs);
-  const {r, c} = getPieceOrigin(hoverRow, hoverCol);
-  renderBoard(getManualGhostCells(r, c));
+  if (manualPiece) {
+    const {r, c} = getPieceOrigin(hoverRow, hoverCol);
+    manualPiece.row = r; manualPiece.col = c;
+  }
+  renderBoard();
 }
 
 function onBoardLeave() {
@@ -1015,33 +1142,36 @@ function onBoardLeave() {
 }
 
 function onBoardClick(e) {
-  if (gameMode === 'auto') return;
+  if (gameMode === 'auto' || !manualPiece) return;
   const rect = e.currentTarget.getBoundingClientRect();
   const cs = getCellSize();
   const clickCol = Math.floor((e.clientX - rect.left) / cs);
   const clickRow = Math.floor((e.clientY - rect.top)  / cs);
   const {r, c} = getPieceOrigin(clickRow, clickCol);
-  if (!canPlaceManual(r, c)) return;
-
-  if (countEnabled && placementCount <= 0) { flashCountBox(); return; }
-
-  history.push({ board: board.map(row => [...row]), score, totalLines, placementCount });
-  if (history.length > 30) history.shift();
-
-  placeManualPiece(r, c);
-  if (countEnabled) { placementCount--; updateCountUI(); }
-  stopCountdown(); // 設置成功 → タイマー停止
-  clearLines(() => renderBoard());
-  renderBoard();
+  if (!canPlaceAt(manualPiece.pidx, manualPiece.rot, r, c)) return;
+  manualPiece.row = r; manualPiece.col = c;
+  manualConfirm();
 }
 
 function rotatePiece() {
   if (gameMode === 'auto') { rotateActive(); return; }
-  rotation = (rotation + 1) % PIECES[selectedPiece].shapes.length;
-  if (hoverRow >= 0) {
-    const {r, c} = getPieceOrigin(hoverRow, hoverCol);
-    renderBoard(getManualGhostCells(r, c));
-  } else renderBoard();
+  if (manualPiece) {
+    const p = PIECES[manualPiece.pidx];
+    const newRot = (manualPiece.rot + 1) % p.shapes.length;
+    const shape = p.shapes[newRot];
+    const h = shape.length, w = shape[0].length;
+    const newRow = Math.max(0, Math.min(ROWS - h, manualPiece.row));
+    const newCol = Math.max(0, Math.min(COLS - w, manualPiece.col));
+    if (canPlaceAt(manualPiece.pidx, newRot, newRow, newCol)) {
+      manualPiece.rot = newRot;
+      manualPiece.row = newRow;
+      manualPiece.col = newCol;
+      rotation = newRot;
+    }
+  } else {
+    rotation = (rotation + 1) % PIECES[selectedPiece].shapes.length;
+  }
+  renderBoard();
 }
 
 function undoLast() {
@@ -1055,19 +1185,31 @@ function undoLast() {
   document.getElementById('lines').textContent = totalLines;
   document.getElementById('gameover').classList.remove('show');
   updateCountUI();
+  // manualPiece を復元
+  if (prev.savedManualPiece) {
+    manualPiece = { ...prev.savedManualPiece };
+    selectedPiece = manualPiece.pidx;
+    rotation = manualPiece.rot;
+    document.querySelectorAll('.piece-btn').forEach((b, i) =>
+      b.classList.toggle('selected', i === selectedPiece));
+  } else {
+    spawnManualPiece(selectedPiece, 0);
+  }
   renderBoard();
 }
 
 function resetGame() {
   if (gameMode === 'auto') stopAutoMode();
-  stopCountdown(); // リセット時もタイマークリア
+  stopCountdown();
   initBoard();
   score = 0; totalLines = 0; placementCount = 0;
   history = []; rotation = 0; level = 1;
+  manualPiece = null;
   document.getElementById('score').textContent = 0;
   document.getElementById('lines').textContent = 0;
   document.getElementById('gameover').classList.remove('show');
   updateCountUI();
+  spawnManualPiece(selectedPiece, 0);
   renderBoard();
 }
 
@@ -1172,14 +1314,14 @@ function startAutoMode() {
 
 function stopAutoMode() {
   clearInterval(dropTimer); dropTimer = null;
-  stopCountdown(); // 手動に戻る際もリセット
+  stopCountdown();
   gameMode = 'manual';
   autoRunning = false;
-  activePiece = null; // 落下中のピースは破棄（ボードには反映しない）
-  // ボード・スコアはそのまま引き継ぐ
+  activePiece = null;
   document.getElementById('gameover').classList.remove('show');
   updateAutoUI();
   updateCountUI();
+  spawnManualPiece(selectedPiece, 0);
   renderBoard();
 }
 
@@ -1429,32 +1571,44 @@ function tickCountdown() {
 
 // CPU が有効な場所にランダムに設置
 function autoPlacePiece() {
-  if (gameMode !== 'manual') return;
+  if (gameMode !== 'manual' || !manualPiece) return;
 
-  // 全ての有効な設置候補を収集
-  const shape = getManualShape();
-  const sh = shape.length, sw = shape[0].length;
+  const pidx = manualPiece.pidx;
+  // 全ての rotation × 位置の候補を収集
+  const p = PIECES[pidx];
   const candidates = [];
-  for (let r = 0; r <= ROWS - sh; r++)
-    for (let c = 0; c <= COLS - sw; c++)
-      if (canPlaceManual(r, c)) candidates.push({ r, c });
-
-  if (candidates.length === 0) {
-    // 置ける場所が一切ない場合はカウントを再スタートするだけ
-    stopCountdown();
-    return;
+  for (let rot = 0; rot < p.shapes.length; rot++) {
+    const shape = p.shapes[rot];
+    const sh = shape.length, sw = shape[0].length;
+    for (let r = 0; r <= ROWS - sh; r++)
+      for (let c = 0; c <= COLS - sw; c++)
+        if (canPlaceAt(pidx, rot, r, c)) candidates.push({ r, c, rot });
   }
 
-  // ランダムに1つ選んで設置
+  if (candidates.length === 0) { stopCountdown(); return; }
+
+  // ランダムに1つ選ぶ
   const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+  manualPiece.rot = chosen.rot;
+  manualPiece.row = chosen.r;
+  manualPiece.col = chosen.c;
 
   // undo用にhistory保存
-  history.push({ board: board.map(row => [...row]), score, totalLines, placementCount });
+  history.push({
+    board: board.map(row => [...row]),
+    score, totalLines, placementCount,
+    savedManualPiece: { ...manualPiece }
+  });
   if (history.length > 30) history.shift();
 
-  placeManualPiece(chosen.r, chosen.c);
+  // ボードに書き込み
+  const shape = p.shapes[chosen.rot];
+  const color = p.color;
+  for (let dr = 0; dr < shape.length; dr++)
+    for (let dc = 0; dc < shape[dr].length; dc++)
+      if (shape[dr][dc]) board[chosen.r + dr][chosen.c + dc] = color;
 
-  // 設置セルをフラッシュ表示（CPUが置いたことを示す）
+  // 設置セルをフラッシュ（CPU設置の演出）
   for (let dr = 0; dr < shape.length; dr++)
     for (let dc = 0; dc < shape[dr].length; dc++)
       if (shape[dr][dc]) cells[chosen.r + dr][chosen.c + dc].classList.add('cpu-placed');
@@ -1463,9 +1617,14 @@ function autoPlacePiece() {
   }, 500);
 
   if (countEnabled && placementCount > 0) { placementCount--; updateCountUI(); }
-
   stopCountdown();
-  clearLines(() => renderBoard());
+  manualPiece = null;
+
+  clearLines(() => {
+    spawnManualPiece(selectedPiece, 0);
+    startCountdown();
+    renderBoard();
+  });
   renderBoard();
 }
 
@@ -1532,10 +1691,8 @@ function selectPiece(idx) {
   selectedPiece = idx; rotation = 0;
   document.querySelectorAll('.piece-btn').forEach((b, i) =>
     b.classList.toggle('selected', i === idx));
-  if (hoverRow >= 0) {
-    const {r, c} = getPieceOrigin(hoverRow, hoverCol);
-    renderBoard(getManualGhostCells(r, c));
-  }
+  spawnManualPiece(idx, 0);
+  renderBoard();
   // ブロック選択のたびにカウントダウンをリスタート
   startCountdown();
 }
@@ -1554,6 +1711,11 @@ document.addEventListener('keydown', e => {
     return;
   }
   // Manual mode
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); manualMoveLeft();  return; }
+  if (e.key === 'ArrowRight') { e.preventDefault(); manualMoveRight(); return; }
+  if (e.key === 'ArrowDown')  { e.preventDefault(); manualMoveDown();  return; }
+  if (e.key === 'ArrowUp')    { e.preventDefault(); rotatePiece();     return; }
+  if (e.key === ' ')          { e.preventDefault(); manualConfirm();   return; }
   if (e.key === 'r' || e.key === 'R') rotatePiece();
   if (e.key === 'z' || e.key === 'Z') undoLast();
   if (e.key === 't' || e.key === 'T') {
@@ -1576,6 +1738,7 @@ buildPieceList();
 updateCountUI();
 setupMobileController();
 updateMobileController();
+spawnManualPiece(selectedPiece, 0); // 初期ピースをフィールドに出現
 renderBoard();
 </script>
 
