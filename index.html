@@ -1009,6 +1009,7 @@ function manualConfirm() {
   if (countEnabled) { placementCount--; updateCountUI(); }
   stopCountdown();
   manualPiece = null;
+  document.querySelectorAll('.piece-btn').forEach(b => b.classList.remove('selected'));
 
   // ゲームオーバー判定（上段が埋まった場合）
   if (board[0].some(c => c) || board[1].some(c => c)) {
@@ -1018,9 +1019,8 @@ function manualConfirm() {
     return;
   }
 
-  // ライン消去 → 同ピースで再スポーン（カウントダウンは再起動しない）
+  // ライン消去（設置後は未選択状態に戻す）
   clearLines(() => {
-    spawnManualPiece(selectedPiece, 0);
     renderBoard();
   });
 }
