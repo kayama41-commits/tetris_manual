@@ -1660,7 +1660,7 @@ function buildPieceList() {
   const list = document.getElementById('piece-list');
   PIECES.forEach((p, idx) => {
     const btn = document.createElement('div');
-    btn.className = 'piece-btn' + (idx === 0 ? ' selected' : '');
+    btn.className = 'piece-btn';
     btn.onclick = () => selectPiece(idx);
     btn.id = `pbtn-${idx}`;
 
@@ -1736,7 +1736,6 @@ buildPieceList();
 updateCountUI();
 setupMobileController();
 updateMobileController();
-spawnManualPiece(selectedPiece, 0); // 初期ピースをフィールドに出現
 renderBoard();
 </script>
 
