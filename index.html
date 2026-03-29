@@ -206,6 +206,42 @@
   button.ctrl:hover { background: #1e3060; border-color: #555; }
   button.ctrl.danger { border-color: #c0392b; }
   button.ctrl.danger:hover { background: #3a1010; }
+  button.ctrl.save  { border-color: #1565c0; }
+  button.ctrl.save:hover  { background: #0d1f4a; border-color: #1e88e5; }
+  button.ctrl.load  { border-color: #27ae60; }
+  button.ctrl.load:hover  { background: #0d3a1f; border-color: #2ecc71; }
+  button.ctrl:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+
+  .save-date {
+    font-size: 0.68rem;
+    color: #666;
+    text-align: center;
+    margin-top: -4px;
+  }
+
+  /* ===== SAVE TOAST ===== */
+  #save-toast {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%) translateY(12px);
+    background: #1a3a60;
+    border: 1px solid #1e88e5;
+    color: #7fd1ff;
+    padding: 9px 22px;
+    border-radius: 20px;
+    font-size: 0.88rem;
+    font-weight: bold;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s;
+    z-index: 9999;
+    white-space: nowrap;
+  }
+  #save-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 
   /* ===== PLACEMENT COUNT ===== */
   .count-box {
@@ -676,6 +712,9 @@
         <div class="section-title">操作</div>
         <button class="ctrl" onclick="rotatePiece()">↻ 回転 (R)</button>
         <button class="ctrl" id="undo-btn" onclick="undoLast()">↩ 元に戻す (Z)</button>
+        <button class="ctrl save" onclick="saveGame()">💾 セーブ</button>
+        <button class="ctrl load" id="load-btn" onclick="loadGame()" disabled>📂 ロード</button>
+        <div class="save-date" id="save-date" style="display:none"></div>
         <button class="ctrl danger" onclick="resetGame()">✕ リセット</button>
       </div>
 
@@ -690,6 +729,9 @@
       <div id="info">ブロックを選んで<br>盤面をクリックで設置<br>横一列が埋まると消去！</div>
     </div>
   </div>
+
+  <!-- Save Toast -->
+  <div id="save-toast"></div>
 
   <!-- Mobile D-Pad: 自動モード時にスマホ/タブレットで表示 -->
   <div id="mobile-dpad">
@@ -1729,6 +1771,80 @@ document.addEventListener('keydown', e => {
   if (n >= 1 && n <= 7) selectPiece(n - 1);
 });
 
+// ===== SAVE / LOAD =====
+const SAVE_KEY = 'manualTetrisSave';
+
+function saveGame() {
+  if (gameMode === 'auto') return;
+  const data = {
+    board: board.map(r => [...r]),
+    score, totalLines, placementCount, countEnabled,
+    selectedPiece, rotation,
+    manualPiece: manualPiece ? { ...manualPiece } : null,
+    savedAt: Date.now()
+  };
+  localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  showSaveToast('💾 セーブしました！');
+  updateSaveLoadUI();
+}
+
+function loadGame() {
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (!raw) return;
+  const data = JSON.parse(raw);
+
+  if (gameMode === 'auto') stopAutoMode();
+  stopCountdown();
+
+  board          = data.board.map(r => [...r]);
+  score          = data.score ?? 0;
+  totalLines     = data.totalLines ?? 0;
+  placementCount = data.placementCount ?? 0;
+  countEnabled   = data.countEnabled ?? false;
+  selectedPiece  = data.selectedPiece ?? 0;
+  rotation       = data.rotation ?? 0;
+  manualPiece    = data.manualPiece ? { ...data.manualPiece } : null;
+  history        = [];
+
+  document.getElementById('score').textContent = score;
+  document.getElementById('lines').textContent = totalLines;
+  document.getElementById('gameover').classList.remove('show');
+  document.getElementById('count-toggle').checked = countEnabled;
+  updateCountUI();
+
+  // ピース選択状態を反映（manualPiece がある場合のみ選択表示）
+  document.querySelectorAll('.piece-btn').forEach((b, i) =>
+    b.classList.toggle('selected', manualPiece !== null && i === selectedPiece));
+
+  renderBoard();
+  showSaveToast('📂 ロードしました！');
+}
+
+function showSaveToast(msg) {
+  const toast = document.getElementById('save-toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toast._hideTimer);
+  toast._hideTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+function updateSaveLoadUI() {
+  const raw = localStorage.getItem(SAVE_KEY);
+  const loadBtn  = document.getElementById('load-btn');
+  const dateEl   = document.getElementById('save-date');
+  if (raw) {
+    loadBtn.disabled = false;
+    const { savedAt } = JSON.parse(raw);
+    const d = new Date(savedAt);
+    const pad = n => String(n).padStart(2, '0');
+    dateEl.textContent = `最終: ${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    dateEl.style.display = '';
+  } else {
+    loadBtn.disabled = true;
+    dateEl.style.display = 'none';
+  }
+}
+
 // ===== INIT =====
 initBoard();
 buildBoardDOM();
@@ -1736,6 +1852,7 @@ buildPieceList();
 updateCountUI();
 setupMobileController();
 updateMobileController();
+updateSaveLoadUI();
 renderBoard();
 </script>
 
