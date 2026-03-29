@@ -1359,10 +1359,11 @@ function stopAutoMode() {
   gameMode = 'manual';
   autoRunning = false;
   activePiece = null;
+  manualPiece = null;
   document.getElementById('gameover').classList.remove('show');
+  document.querySelectorAll('.piece-btn').forEach(b => b.classList.remove('selected'));
   updateAutoUI();
   updateCountUI();
-  spawnManualPiece(selectedPiece, 0);
   renderBoard();
 }
 
