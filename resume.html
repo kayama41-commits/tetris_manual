@@ -146,6 +146,58 @@
             .del-col { display: none !important; }
             .del-th { display: none !important; }
         }
+
+        /* カスタム確認ダイアログ */
+        #confirmOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        #confirmOverlay.show { display: flex; }
+        #confirmBox {
+            background: #fff;
+            border-radius: 10px;
+            padding: 24px 28px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+            text-align: center;
+            min-width: 260px;
+        }
+        #confirmBox p {
+            font-size: 15px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        #confirmBox .btn-row {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+        #confirmBox .btn-ok {
+            background: #e53935;
+            color: #fff;
+            border: none;
+            padding: 8px 24px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        #confirmBox .btn-ok:hover { background: #c62828; }
+        #confirmBox .btn-cancel {
+            background: #eeeeee;
+            color: #333;
+            border: none;
+            padding: 8px 24px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        #confirmBox .btn-cancel:hover { background: #e0e0e0; }
     </style>
 </head>
 <body class="edit-mode">
@@ -314,6 +366,17 @@
         </table>
 
         <div class="mt-2 text-[10px] text-gray-500">※「性別」欄：記載は任意です。未記載とすることも可能です。</div>
+    </div>
+
+    <!-- カスタム確認ダイアログ（confirm()の代替・INP対策） -->
+    <div id="confirmOverlay">
+        <div id="confirmBox">
+            <p>この行を削除しますか？</p>
+            <div class="btn-row">
+                <button class="btn-ok" id="confirmOk">削除する</button>
+                <button class="btn-cancel" id="confirmCancel">キャンセル</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -499,29 +562,44 @@
         }
 
         // ==============================
-        // 行削除ボタン処理
+        // 行削除ボタン処理（カスタムダイアログ使用・INP対策）
         // ==============================
         function deleteRow(btn) {
             const tr = btn.closest('tr');
             const tbody = tr.closest('tbody');
 
             // 削除可能な行数チェック（最低1行は残す）
-            const deletableRows = tbody.querySelectorAll('tr:not(.add-row-tr)');
-            // 見出し行（学歴・職歴・以上）と追加ボタン行以外の実データ行をカウント
-            const dataRows = Array.from(deletableRows).filter(r =>
-                !r.querySelector('.font-bold') &&         // 「学歴」「職歴」見出し行を除外
-                r.querySelector('.editable') &&           // editableを含む行のみ
+            const dataRows = Array.from(tbody.querySelectorAll('tr')).filter(r =>
+                !r.querySelector('.font-bold') &&
+                r.querySelector('.editable') &&
                 !r.classList.contains('add-row-tr')
             );
 
             if (dataRows.length <= 1) {
-                alert('最低1行は必要です。');
+                showConfirm('最低1行は必要なため削除できません。', null);
                 return;
             }
 
-            if (confirm('この行を削除しますか？')) {
-                tr.remove();
-            }
+            // confirm() の代わりにノンブロッキングなカスタムダイアログを使用
+            showConfirm('この行を削除しますか？', () => tr.remove());
+        }
+
+        // カスタム確認ダイアログの表示
+        function showConfirm(message, onOk) {
+            const overlay = document.getElementById('confirmOverlay');
+            const msgEl   = document.querySelector('#confirmBox p');
+            const okBtn   = document.getElementById('confirmOk');
+            const cancelBtn = document.getElementById('confirmCancel');
+
+            msgEl.textContent = message;
+            okBtn.style.display = onOk ? 'inline-block' : 'none';
+            overlay.classList.add('show');
+
+            const close = () => overlay.classList.remove('show');
+
+            okBtn.onclick = () => { close(); onOk && onOk(); };
+            cancelBtn.onclick = close;
+            overlay.onclick = (e) => { if (e.target === overlay) close(); };
         }
 
         window.onload = () => setMode('edit');
