@@ -409,6 +409,8 @@
 
     <script>
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbzUEkckXl7NafZtsM0bgmYH2NwasulTItwGdy5YoDb_DFlQHc4Mqb4yna7onnzeIAR5/exec';
+        // セキュリティ: GASへのリクエスト認証トークン
+        const SECRET_TOKEN = 'aec79f0958ac4b81bddcb18ca8b7ef20e2ddeea113884fd5a0fae87c6c951a8e';
 
         function setMode(mode) {
             const body = document.body;
@@ -524,7 +526,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain' },
                     redirect: 'follow',
-                    body: JSON.stringify({ pdfBase64: pdfBase64, fileName: name }),
+                    body: JSON.stringify({ pdfBase64: pdfBase64, fileName: name, token: SECRET_TOKEN }),
                 });
                 const data = await res.json();
                 if (data.success) {
