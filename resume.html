@@ -365,6 +365,34 @@
             </tr>
         </table>
 
+        <!-- 希望出勤曜日 -->
+        <table class="mt-4">
+            <tr>
+                <td class="label-bg text-left" style="height: 20px;">希望出勤曜日</td>
+            </tr>
+            <tr>
+                <td style="padding: 10px 16px;">
+                    <div style="display: flex; gap: 24px; align-items: center; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer;">
+                            <input type="checkbox" id="day-wed" style="width: 16px; height: 16px; cursor: pointer;"> 水
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer;">
+                            <input type="checkbox" id="day-thu" style="width: 16px; height: 16px; cursor: pointer;"> 木
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer;">
+                            <input type="checkbox" id="day-fri" style="width: 16px; height: 16px; cursor: pointer;"> 金
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer;">
+                            <input type="checkbox" id="day-sat" style="width: 16px; height: 16px; cursor: pointer;"> 土
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer;">
+                            <input type="checkbox" id="day-sun" style="width: 16px; height: 16px; cursor: pointer;"> 日
+                        </label>
+                    </div>
+                </td>
+            </tr>
+        </table>
+
         <div class="mt-2 text-[10px] text-gray-500">※「性別」欄：記載は任意です。未記載とすることも可能です。</div>
     </div>
 
@@ -388,16 +416,20 @@
             const lockBtn = document.getElementById('lockBtn');
             const editables = document.querySelectorAll('.editable');
 
+            const dayCheckboxes = document.querySelectorAll('#day-wed, #day-thu, #day-fri, #day-sat, #day-sun');
+
             if (mode === 'edit') {
                 body.classList.replace('lock-mode', 'edit-mode');
                 editBtn.classList.add('bg-yellow-400', 'text-black');
                 lockBtn.classList.remove('bg-gray-800', 'text-white');
                 editables.forEach(el => el.setAttribute('contenteditable', 'true'));
+                dayCheckboxes.forEach(cb => cb.disabled = false);
             } else {
                 body.classList.replace('edit-mode', 'lock-mode');
                 lockBtn.classList.add('bg-gray-800', 'text-white');
                 editBtn.classList.remove('bg-yellow-400', 'text-black');
                 editables.forEach(el => el.setAttribute('contenteditable', 'false'));
+                dayCheckboxes.forEach(cb => cb.disabled = true);
             }
         }
 
