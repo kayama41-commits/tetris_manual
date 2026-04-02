@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>履歴書（厚生労働省推奨様式）</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- ブラウザ側PDF生成ライブラリ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #f3f4f6;
+            padding: 20px;
+            color: #000;
+        }
+
+        /* A4サイズ設定 */
+        .resume-page {
+            background-color: white;
+            width: 210mm;
+            min-height: 297mm;
+            margin: 0 auto;
+            padding: 12mm 15mm;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        @media print {
+            body { background: none; padding: 0; }
+            .resume-page { box-shadow: none; margin: 0; width: 100%; padding: 10mm; }
+            .no-print { display: none; }
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 2px solid #000;
+            table-layout: fixed;
+        }
+
+        th, td {
+            border: 1px solid #000;
+            padding: 4px 8px;
+            font-size: 13px;
+            height: 28px;
+            word-wrap: break-word;
+        }
+
+        /* 補助的なスタイル */
+        .label-bg { background-color: #ffffff; text-align: center; font-size: 12px; }
+        .rubi-row { height: 16px; font-size: 9px; vertical-align: bottom; border-bottom: none; }
+        .no-border-bottom { border-bottom: none; }
+        .no-border-top { border-top: none; }
+        .no-border-right { border-right: none; }
+        .no-border-left { border-left: none; }
+
+        .header-title { font-size: 26px; font-weight: bold; letter-spacing: 15px; text-align: left; }
+        .date-text { text-align: right; font-size: 13px; margin-bottom: 5px; }
+
+        /* 写真枠 */
+        .photo-box {
+            width: 30mm;
+            height: 40mm;
+            border: 1px solid #000;
+            text-align: center;
+            font-size: 10px;
+            padding: 5px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        /* 編集モード */
+        .edit-mode .editable {
+            background-color: #fffde7;
+            outline: 1px dashed #ffd600;
+            cursor: text;
+        }
+        .lock-mode .editable {
+            background-color: transparent;
+            outline: none;
+        }
+
+        #driveBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* 行追加ボタン */
+        .add-row-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background-color: #e8f5e9;
+            border: 1px dashed #4caf50;
+            color: #2e7d32;
+            font-size: 12px;
+            font-weight: bold;
+            padding: 2px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .add-row-btn:hover { background-color: #c8e6c9; }
+
+        /* 行追加ボタン行：閲覧モード・印刷時は非表示 */
+        .add-row-tr { border: none !important; }
+        .add-row-tr td { border: none !important; background: #f9fbe7; padding: 4px 6px !important; height: auto !important; }
+        .lock-mode .add-row-tr,
+        .lock-mode .add-row-tr td { display: none; }
+
+        /* 行削除ボタン列 */
+        .del-col {
+            width: 30px !important;
+            padding: 2px !important;
+            text-align: center;
+            border: 1px solid #000;
+            background: #fff5f5;
+        }
+        .del-btn {
+            background: #ffebee;
+            border: 1px solid #e57373;
+            color: #c62828;
+            font-size: 15px;
+            font-weight: bold;
+            width: 22px;
+            height: 22px;
+            border-radius: 4px;
+            cursor: pointer;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        .del-btn:hover { background: #ffcdd2; }
+
+        /* 削除列：閲覧モード・印刷時は非表示 */
+        .lock-mode .del-col { display: none; }
+        .lock-mode .del-th { display: none; }
+
+        @media print {
+            .add-row-tr { display: none !important; }
+            .del-col { display: none !important; }
+            .del-th { display: none !important; }
+        }
+    </style>
+</head>
+<body class="edit-mode">
+
+    <div class="no-print flex justify-center gap-4 mb-6">
+        <div class="bg-white p-1 rounded-lg shadow-md flex">
+            <button id="editBtn" onclick="setMode('edit')" class="px-4 py-2 rounded-md transition font-bold bg-yellow-400 text-black">編集モード</button>
+            <button id="lockBtn" onclick="setMode('lock')" class="px-4 py-2 rounded-md transition font-bold text-gray-500 hover:bg-gray-100">閲覧モード</button>
+        </div>
+        <button onclick="window.print()" class="bg-blue-600 text-white px-6 py-2 rounded-lg shadow hover:bg-blue-700 font-bold">印刷 / PDF保存</button>
+        <button id="driveBtn" onclick="saveToDrive()" class="bg-green-600 text-white px-6 py-2 rounded-lg shadow hover:bg-green-700 font-bold">Driveに保存</button>
+    </div>
+
+    <div class="resume-page" id="resumeContent">
+        <div class="flex justify-between items-end mb-2">
+            <div class="header-title">履歴書</div>
+            <div class="date-text"><span class="editable">2024</span>年<span class="editable">4</span>月<span class="editable">1</span>日現在</div>
+        </div>
+
+        <!-- 基本情報セクション -->
+        <div class="flex gap-4">
+            <div class="flex-grow">
+                <table style="border-bottom: none;">
+                    <tr class="rubi-row">
+                        <td style="width: 60px;" class="no-border-right">ふりがな</td>
+                        <td colspan="2" class="editable no-border-left">まるまる　たろう</td>
+                        <td style="width: 80px;" class="label-bg">※性別</td>
+                    </tr>
+                    <tr>
+                        <td class="label-bg">氏名</td>
+                        <td colspan="2" class="text-xl font-bold text-center py-4 editable">〇〇　太郎</td>
+                        <td class="text-center editable">男</td>
+                    </tr>
+                    <tr>
+                        <td class="label-bg" rowspan="2">生年月日</td>
+                        <td colspan="3" class="editable px-4 py-2">
+                            <span class="inline-block w-16 text-right">1995</span> 年
+                            <span class="inline-block w-8 text-right">1</span> 月
+                            <span class="inline-block w-8 text-right">1</span> 日生
+                            （満 <span class="inline-block w-8 text-right">29</span> 歳）
+                        </td>
+                    </tr>
+                </table>
+                <table style="border-top: 1px solid #000;">
+                    <tr class="rubi-row">
+                        <td style="width: 60px;" class="no-border-right">ふりがな</td>
+                        <td class="editable no-border-left">とうきょうととしまくひがしいけぶくろ</td>
+                        <td style="width: 40px;" class="label-bg">電話</td>
+                        <td style="width: 120px;" class="editable text-center">03-xxxx-xxxx</td>
+                    </tr>
+                    <tr>
+                        <td class="label-bg">現住所</td>
+                        <td class="editable h-16">〒 170-0013<br>東京都豊島区東池袋 ◯-◯-◯ 〇〇マンション101</td>
+                        <td class="label-bg">E-mail</td>
+                        <td class="editable text-xs">taro.maru@example.com</td>
+                    </tr>
+                    <tr class="rubi-row">
+                        <td class="no-border-right">ふりがな</td>
+                        <td class="editable no-border-left"></td>
+                        <td class="label-bg">電話</td>
+                        <td class="editable text-center">090-xxxx-xxxx</td>
+                    </tr>
+                    <tr>
+                        <td class="label-bg">連絡先</td>
+                        <td class="editable h-16">（現住所以外に連絡を希望する場合のみ記入）</td>
+                        <td class="label-bg">E-mail</td>
+                        <td class="editable text-xs"></td>
+                    </tr>
+                </table>
+            </div>
+            <div class="flex-shrink-0">
+                <div class="photo-box">
+                    写真を貼る位置<br><br>
+                    1. 縦 36～40mm<br>横 24～30mm<br>
+                    2. 本人単身胸から上<br>
+                    3. 裏面のりづけ
+                </div>
+            </div>
+        </div>
+
+        <!-- 学歴・職歴セクション -->
+        <table class="mt-4">
+            <thead>
+                <tr>
+                    <th style="width: 60px;">年</th>
+                    <th style="width: 40px;">月</th>
+                    <th>学　歴 ・ 職　歴 （各別にまとめて書く）</th>
+                    <th class="del-th" style="width: 30px;"></th>
+                </tr>
+            </thead>
+            <tbody id="careerTableBody">
+                <tr><td class="text-center"></td><td></td><td class="text-center font-bold">学　歴</td><td class="del-col"></td></tr>
+                <!-- 学歴 5行分 -->
+                <tr><td class="editable text-center">2010</td><td class="editable text-center">4</td><td class="editable">〇〇県立〇〇高等学校 入学</td><td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td></tr>
+                <tr><td class="editable text-center">2013</td><td class="editable text-center">3</td><td class="editable">〇〇県立〇〇高等学校 卒業</td><td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td></tr>
+                <tr><td class="editable text-center">2013</td><td class="editable text-center">4</td><td class="editable">〇〇大学 〇〇学部 〇〇学科 入学</td><td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td></tr>
+                <tr><td class="editable text-center">2017</td><td class="editable text-center">3</td><td class="editable">〇〇大学 〇〇学部 〇〇学科 卒業</td><td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td></tr>
+                <tr><td class="editable h-7"></td><td class="editable"></td><td class="editable"></td><td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td></tr>
+                <tr class="add-row-tr">
+                    <td colspan="4">
+                        <button class="add-row-btn" onclick="addRowBefore('jobHeader')">＋ 行を追加</button>
+                    </td>
+                </tr>
+
+                <tr id="jobHeader"><td class="text-center"></td><td></td><td class="text-center font-bold">職　歴</td><td class="del-col"></td></tr>
+                <!-- 職歴 8行分 -->
+                <tr><td class="editable text-center">2017</td><td class="editable text-center">4</td><td class="editable">株式会社〇〇 入社</td><td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td></tr>
+                <tr><td class="editable text-center"></td><td class="editable text-center"></td><td class="editable">現在に至る</td><td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td></tr>
+                <tr><td class="editable h-7"></td><td class="editable"></td><td class="editable"></td><td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td></tr>
+                <tr><td class="editable h-7"></td><td class="editable"></td><td class="editable"></td><td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td></tr>
+                <tr><td class="editable h-7"></td><td class="editable"></td><td class="editable"></td><td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td></tr>
+                <tr><td class="editable h-7"></td><td class="editable"></td><td class="editable"></td><td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td></tr>
+                <tr><td class="editable h-7"></td><td class="editable"></td><td class="editable"></td><td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td></tr>
+                <tr class="add-row-tr">
+                    <td colspan="4">
+                        <button class="add-row-btn" onclick="addRowBeforeBtn(this)">＋ 行を追加</button>
+                    </td>
+                </tr>
+                <tr id="ijouRow"><td></td><td></td><td class="text-right">以上</td><td class="del-col"></td></tr>
+            </tbody>
+        </table>
+
+        <!-- 免許・資格セクション -->
+        <table class="mt-4">
+            <thead>
+                <tr>
+                    <th style="width: 60px;">年</th>
+                    <th style="width: 40px;">月</th>
+                    <th>免　許 ・ 資　格</th>
+                    <th class="del-th" style="width: 30px;"></th>
+                </tr>
+            </thead>
+            <tbody id="licenseTableBody">
+                <tr><td class="editable text-center h-7">2013</td><td class="editable text-center">5</td><td class="editable">普通自動車第一種運転免許 取得</td><td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td></tr>
+                <tr><td class="editable text-center h-7">2017</td><td class="editable text-center">10</td><td class="editable">TOEIC 公開テスト 800点 取得</td><td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td></tr>
+                <tr><td class="editable text-center h-7"></td><td class="editable text-center"></td><td class="editable"></td><td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td></tr>
+                <tr><td class="editable text-center h-7"></td><td class="editable text-center"></td><td class="editable"></td><td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td></tr>
+                <tr><td class="editable text-center h-7"></td><td class="editable text-center"></td><td class="editable"></td><td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td></tr>
+                <tr class="add-row-tr">
+                    <td colspan="4">
+                        <button class="add-row-btn" onclick="addRowBeforeBtn(this)">＋ 行を追加</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- 志望動機 -->
+        <table class="mt-4">
+            <tr>
+                <td class="label-bg text-left" style="height: 20px;">志望の動機、特技、自己PR、アピールポイントなど</td>
+            </tr>
+            <tr>
+                <td class="editable h-32 align-top py-2">
+                    貴社の〇〇事業において、私の〇〇という強みを活かしたいと考え志望いたしました...
+                </td>
+            </tr>
+        </table>
+
+        <!-- 本人希望 -->
+        <table class="mt-4">
+            <tr>
+                <td class="label-bg text-left" style="height: 20px;">本人希望記入欄（特に給料、職種、勤務時間、勤務地、その他についての希望などがあれば記入）</td>
+            </tr>
+            <tr>
+                <td class="editable h-24 align-top py-2">
+                    貴社規定に従います。
+                </td>
+            </tr>
+        </table>
+
+        <div class="mt-2 text-[10px] text-gray-500">※「性別」欄：記載は任意です。未記載とすることも可能です。</div>
+    </div>
+
+    <script>
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzUEkckXl7NafZtsM0bgmYH2NwasulTItwGdy5YoDb_DFlQHc4Mqb4yna7onnzeIAR5/exec';
+
+        function setMode(mode) {
+            const body = document.body;
+            const editBtn = document.getElementById('editBtn');
+            const lockBtn = document.getElementById('lockBtn');
+            const editables = document.querySelectorAll('.editable');
+
+            if (mode === 'edit') {
+                body.classList.replace('lock-mode', 'edit-mode');
+                editBtn.classList.add('bg-yellow-400', 'text-black');
+                lockBtn.classList.remove('bg-gray-800', 'text-white');
+                editables.forEach(el => el.setAttribute('contenteditable', 'true'));
+            } else {
+                body.classList.replace('edit-mode', 'lock-mode');
+                lockBtn.classList.add('bg-gray-800', 'text-white');
+                editBtn.classList.remove('bg-yellow-400', 'text-black');
+                editables.forEach(el => el.setAttribute('contenteditable', 'false'));
+            }
+        }
+
+        async function saveToDrive() {
+            const btn = document.getElementById('driveBtn');
+            const name = prompt('保存するファイル名', '履歴書_厚生労働省様式');
+            if (!name) return;
+
+            btn.disabled = true;
+            btn.textContent = 'PDF生成中...';
+
+            // 閲覧モードに切替（編集用の黄色背景・点線を消す）
+            const current = document.body.classList.contains('edit-mode') ? 'edit' : 'lock';
+            setMode('lock');
+
+            try {
+                const target = document.getElementById('resumeContent');
+
+                // ① html2canvas でブラウザ表示をそのまま画像化
+                //    scale:1.5 / jpeg品質0.85 でファイルサイズを抑える（GASの上限対策）
+                const canvas = await html2canvas(target, {
+                    scale: 1.5,
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                    logging: false,
+                });
+
+                // ② jsPDF でA4 PDFを生成し、画像を貼り付け
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+                const pageW = pdf.internal.pageSize.getWidth();   // 210mm
+                const pageH = pdf.internal.pageSize.getHeight();  // 297mm
+                const imgData = canvas.toDataURL('image/jpeg', 0.85);
+
+                // 縦長の場合に複数ページ対応
+                const canvasAspect = canvas.height / canvas.width;
+                const imgH = pageW * canvasAspect;
+
+                if (imgH <= pageH) {
+                    // 1ページに収まる場合
+                    pdf.addImage(imgData, 'JPEG', 0, 0, pageW, imgH);
+                } else {
+                    // 複数ページにまたがる場合
+                    let posY = 0;
+                    while (posY < imgH) {
+                        pdf.addImage(imgData, 'JPEG', 0, -posY, pageW, imgH);
+                        posY += pageH;
+                        if (posY < imgH) pdf.addPage();
+                    }
+                }
+
+                // ③ base64文字列として取得
+                const pdfBase64 = pdf.output('datauristring').split(',')[1];
+
+                btn.textContent = '送信中...';
+
+                // ④ GASにbase64 PDFを送信（GAS側はそのままDriveに保存するだけ）
+                const res = await fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    redirect: 'follow',
+                    body: JSON.stringify({ pdfBase64: pdfBase64, fileName: name }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (confirm('保存完了！ファイルを開きますか？')) window.open(data.url, '_blank');
+                } else {
+                    alert('エラー: ' + data.error);
+                }
+            } catch (e) {
+                alert('通信失敗: ' + e.message);
+            } finally {
+                setMode(current); // 元のモードに戻す
+                btn.disabled = false;
+                btn.textContent = 'Driveに保存';
+            }
+        }
+
+        // ==============================
+        // 行追加ボタン処理（テーブル末尾に追加）
+        // ==============================
+        function addRow(tbodyId) {
+            const tbody = document.getElementById(tbodyId);
+            const isEditMode = document.body.classList.contains('edit-mode');
+
+            // 新しい行を作成（削除ボタン列を含む）
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="editable text-center h-7" contenteditable="${isEditMode}"></td>
+                <td class="editable text-center h-7" contenteditable="${isEditMode}"></td>
+                <td class="editable h-7" contenteditable="${isEditMode}"></td>
+                <td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td>
+            `;
+
+            // 「行追加ボタン行」の直前に挿入
+            const addRowTr = tbody.querySelector('.add-row-tr:last-of-type');
+            tbody.insertBefore(tr, addRowTr);
+        }
+
+        // ==============================
+        // 行追加ボタン処理（ボタン行の直前に追加）
+        // ==============================
+        function addRowBeforeBtn(btn) {
+            const addRowTr = btn.closest('.add-row-tr');
+            const tbody = addRowTr.closest('tbody');
+            const isEditMode = document.body.classList.contains('edit-mode');
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="editable text-center h-7" contenteditable="${isEditMode}"></td>
+                <td class="editable text-center h-7" contenteditable="${isEditMode}"></td>
+                <td class="editable h-7" contenteditable="${isEditMode}"></td>
+                <td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td>
+            `;
+
+            // ＋ボタン行の直前に挿入
+            tbody.insertBefore(tr, addRowTr);
+        }
+
+        // ==============================
+        // 行追加ボタン処理（指定IDの行の直前に追加）
+        // ==============================
+        function addRowBeforeId(rowId) {
+            const targetRow = document.getElementById(rowId);
+            const tbody = targetRow.closest('tbody');
+            const isEditMode = document.body.classList.contains('edit-mode');
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="editable text-center h-7" contenteditable="${isEditMode}"></td>
+                <td class="editable text-center h-7" contenteditable="${isEditMode}"></td>
+                <td class="editable h-7" contenteditable="${isEditMode}"></td>
+                <td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td>
+            `;
+
+            // 指定行の直前に挿入
+            tbody.insertBefore(tr, targetRow);
+        }
+
+        // ==============================
+        // 行追加ボタン処理（指定行IDの直前に追加）※学歴用
+        // ==============================
+        function addRowBefore(beforeRowId) {
+            const beforeRow = document.getElementById(beforeRowId);
+            const tbody = beforeRow.closest('tbody');
+            const isEditMode = document.body.classList.contains('edit-mode');
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="editable text-center h-7" contenteditable="${isEditMode}"></td>
+                <td class="editable text-center h-7" contenteditable="${isEditMode}"></td>
+                <td class="editable h-7" contenteditable="${isEditMode}"></td>
+                <td class="del-col"><button class="del-btn" onclick="deleteRow(this)" title="この行を削除">－</button></td>
+            `;
+
+            // 「職歴」見出し行の直前（＝学歴ボタン行の直前）に挿入
+            tbody.insertBefore(tr, beforeRow.previousElementSibling);
+        }
+
+        // ==============================
+        // 行削除ボタン処理
+        // ==============================
+        function deleteRow(btn) {
+            const tr = btn.closest('tr');
+            const tbody = tr.closest('tbody');
+
+            // 削除可能な行数チェック（最低1行は残す）
+            const deletableRows = tbody.querySelectorAll('tr:not(.add-row-tr)');
+            // 見出し行（学歴・職歴・以上）と追加ボタン行以外の実データ行をカウント
+            const dataRows = Array.from(deletableRows).filter(r =>
+                !r.querySelector('.font-bold') &&         // 「学歴」「職歴」見出し行を除外
+                r.querySelector('.editable') &&           // editableを含む行のみ
+                !r.classList.contains('add-row-tr')
+            );
+
+            if (dataRows.length <= 1) {
+                alert('最低1行は必要です。');
+                return;
+            }
+
+            if (confirm('この行を削除しますか？')) {
+                tr.remove();
+            }
+        }
+
+        window.onload = () => setMode('edit');
+    </script>
+</body>
+</html>
