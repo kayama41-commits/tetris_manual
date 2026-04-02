@@ -198,9 +198,111 @@
             font-size: 14px;
         }
         #confirmBox .btn-cancel:hover { background: #e0e0e0; }
+
+        /* 個人情報取り扱いモーダル */
+        #privacyOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+        #privacyOverlay.show { display: flex; }
+        #privacyBox {
+            background: #fff;
+            border-radius: 12px;
+            padding: 32px 36px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+            max-width: 480px;
+            width: 90%;
+        }
+        #privacyBox h2 {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 16px;
+            color: #1a1a1a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #privacyBox ul {
+            font-size: 13px;
+            color: #444;
+            line-height: 1.9;
+            padding-left: 20px;
+            margin-bottom: 20px;
+        }
+        #privacyBox .notice {
+            font-size: 12px;
+            color: #888;
+            background: #f5f5f5;
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin-bottom: 24px;
+            line-height: 1.7;
+        }
+        #privacyAgreeBtn {
+            width: 100%;
+            background: #1976d2;
+            color: #fff;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #privacyAgreeBtn:hover { background: #1565c0; }
+
+        /* 個人情報バナー（画面上部の常時表示） */
+        #privacyBanner {
+            background: #e3f2fd;
+            border-bottom: 1px solid #90caf9;
+            color: #1565c0;
+            font-size: 12px;
+            text-align: center;
+            padding: 6px 12px;
+            display: none;
+        }
+        #privacyBanner.show { display: block; }
+        #privacyBanner a {
+            color: #1565c0;
+            font-weight: bold;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        @media print { #privacyBanner { display: none !important; } }
     </style>
 </head>
 <body class="edit-mode">
+
+    <!-- 個人情報取り扱いバナー（同意後に常時表示） -->
+    <div id="privacyBanner" class="no-print">
+        🔒 入力された個人情報はGoogleドライブにのみ保存されます。第三者への提供は行いません。
+        <a onclick="showPrivacyModal()">取り扱いについて詳しく見る</a>
+    </div>
+
+    <!-- 個人情報取り扱いモーダル -->
+    <div id="privacyOverlay">
+        <div id="privacyBox">
+            <h2>🔒 個人情報の取り扱いについて</h2>
+            <ul>
+                <li>入力された氏名・住所・生年月日などの個人情報は、<strong>Google Drive（ご自身のアカウント）にのみ保存</strong>されます。</li>
+                <li>入力データはこのブラウザ上でのみ処理され、<strong>運営者のサーバーには保存されません。</strong></li>
+                <li>第三者への情報提供・販売は一切行いません。</li>
+                <li>PDFとして保存された履歴書の管理は、<strong>利用者ご自身の責任</strong>で行ってください。</li>
+            </ul>
+            <div class="notice">
+                ※ 本サービスはGoogle Apps Scriptを利用してPDF変換・Drive保存を行っています。<br>
+                ※ 通信はすべてHTTPS（暗号化）で行われます。
+            </div>
+            <button id="privacyAgreeBtn" onclick="agreePrivacy()">同意して利用する</button>
+        </div>
+    </div>
 
     <div class="no-print flex justify-center gap-4 mb-6">
         <div class="bg-white p-1 rounded-lg shadow-md flex">
@@ -667,7 +769,33 @@
             overlay.onclick = (e) => { if (e.target === overlay) close(); };
         }
 
-        window.onload = () => setMode('edit');
+        // ==============================
+        // 個人情報取り扱いモーダル
+        // ==============================
+
+        // モーダルを表示（バナーの「詳しく見る」リンクからも呼び出し可）
+        function showPrivacyModal() {
+            document.getElementById('privacyOverlay').classList.add('show');
+        }
+
+        // 「同意して利用する」ボタン押下時
+        function agreePrivacy() {
+            // 同意済みをlocalStorageに記録（次回以降モーダルを非表示に）
+            localStorage.setItem('privacyAgreed', 'true');
+            document.getElementById('privacyOverlay').classList.remove('show');
+            document.getElementById('privacyBanner').classList.add('show');
+        }
+
+        window.onload = () => {
+            setMode('edit');
+
+            // 未同意の場合はモーダルを表示、同意済みの場合はバナーのみ表示
+            if (localStorage.getItem('privacyAgreed') === 'true') {
+                document.getElementById('privacyBanner').classList.add('show');
+            } else {
+                showPrivacyModal();
+            }
+        };
     </script>
 </body>
 </html>
