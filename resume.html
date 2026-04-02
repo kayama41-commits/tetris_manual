@@ -349,6 +349,10 @@
             btn.disabled = true;
             btn.textContent = 'PDF生成中...';
 
+            // ブラウザにUI更新（ボタンの表示変更）を先に反映させてからheavy処理を開始
+            // これによりINP（Interaction to Next Paint）警告を解消する
+            await new Promise(resolve => setTimeout(resolve, 80));
+
             // 閲覧モードに切替（編集用の黄色背景・点線を消す）
             const current = document.body.classList.contains('edit-mode') ? 'edit' : 'lock';
             setMode('lock');
