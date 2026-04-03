@@ -148,6 +148,46 @@
             font-size: 12px;
             font-weight: bold;
         }
+
+        /* PDF一覧テーブル */
+        .card.wide { max-width: 900px; }
+
+        .sort-th {
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+        .sort-th:hover { background: #ebebeb; }
+        .sort-arrow { margin-left: 4px; color: #999; font-size: 11px; }
+        .sort-arrow.active { color: #1976d2; }
+
+        .pdf-name-link {
+            color: #1976d2;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .pdf-name-link:hover { text-decoration: underline; }
+
+        .btn-open {
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #90caf9;
+            padding: 4px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: 'Noto Sans JP', sans-serif;
+            transition: background 0.2s;
+        }
+        .btn-open:hover { background: #bbdefb; }
+
+        #pdfCount {
+            font-size: 13px;
+            color: #888;
+            margin-left: auto;
+            font-weight: normal;
+        }
     </style>
 </head>
 <body>
@@ -232,6 +272,42 @@
             <div class="msg" id="deleteMsg"></div>
         </div>
 
+        <!-- 保存済みPDF一覧 -->
+        <div class="card wide">
+            <div class="card-title">
+                📁 保存済みPDF一覧
+                <span id="pdfCount"></span>
+                <button class="btn btn-gray" onclick="loadFiles()" style="font-size:12px; padding:4px 12px; margin-left:8px;">🔄 更新</button>
+            </div>
+
+            <div style="margin-bottom:10px; font-size:13px; color:#666; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                並び替え：
+                <button class="btn btn-gray" id="sortDateBtn"     onclick="sortFiles('date')"     style="font-size:12px; padding:4px 14px;">📅 保存日時</button>
+                <button class="btn btn-gray" id="sortNameBtn"     onclick="sortFiles('name')"     style="font-size:12px; padding:4px 14px;">🔤 ファイル名</button>
+                <span id="sortOrderLabel" style="color:#1976d2; font-weight:bold; font-size:12px;"></span>
+            </div>
+
+            <div style="overflow-x:auto;">
+                <table id="pdfTable">
+                    <thead>
+                        <tr>
+                            <th class="sort-th" onclick="sortFiles('name')" style="min-width:240px;">
+                                ファイル名 <span class="sort-arrow" id="arrow-name">↕</span>
+                            </th>
+                            <th class="sort-th" onclick="sortFiles('date')" style="min-width:160px;">
+                                保存日時 <span class="sort-arrow" id="arrow-date">↕</span>
+                            </th>
+                            <th style="min-width:80px;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pdfTableBody">
+                        <tr><td colspan="3" style="text-align:center; color:#aaa; padding:20px;">読み込み中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="msg" id="pdfMsg"></div>
+        </div>
+
     </div>
 
     <script>
@@ -270,6 +346,7 @@
                     document.getElementById('loginSection').style.display = 'none';
                     document.getElementById('adminSection').style.display  = 'block';
                     loadUsers();
+                    loadFiles();
                 } else {
                     showMsg('loginMsg', data.error || 'ログインに失敗しました', 'error');
                 }
@@ -443,8 +520,115 @@
                 document.getElementById('loginSection').style.display = 'none';
                 document.getElementById('adminSection').style.display  = 'block';
                 loadUsers();
+                loadFiles();
             }
         };
+
+        // ==============================
+        // PDF一覧の読み込み・表示
+        // ==============================
+        let allFiles = [];
+        let currentSortKey   = 'date'; // 'date' | 'name'
+        let currentSortOrder = 'desc'; // 'asc' | 'desc'
+
+        async function loadFiles() {
+            const tbody = document.getElementById('pdfTableBody');
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#aaa; padding:20px;">読み込み中...</td></tr>';
+            document.getElementById('pdfCount').textContent = '';
+
+            try {
+                const res = await fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    redirect: 'follow',
+                    body: JSON.stringify({ action: 'listFiles', sessionToken: adminToken }),
+                });
+                const data = await res.json();
+
+                if (!data.success) {
+                    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#e53935; padding:16px;">${data.error || 'エラーが発生しました'}</td></tr>`;
+                    return;
+                }
+
+                allFiles = data.files || [];
+                document.getElementById('pdfCount').textContent = `（${allFiles.length} 件）`;
+
+                if (allFiles.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#aaa; padding:20px;">保存済みPDFはありません</td></tr>';
+                    return;
+                }
+
+                renderFiles();
+
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#e53935; padding:16px;">通信エラーが発生しました</td></tr>';
+            }
+        }
+
+        function sortFiles(key) {
+            if (currentSortKey === key) {
+                currentSortOrder = currentSortOrder === 'desc' ? 'asc' : 'desc';
+            } else {
+                currentSortKey   = key;
+                currentSortOrder = key === 'date' ? 'desc' : 'asc';
+            }
+            renderFiles();
+        }
+
+        function renderFiles() {
+            const tbody = document.getElementById('pdfTableBody');
+
+            // ソート
+            const sorted = [...allFiles].sort((a, b) => {
+                let va = currentSortKey === 'date' ? a.createdDate : a.name.toLowerCase();
+                let vb = currentSortKey === 'date' ? b.createdDate : b.name.toLowerCase();
+                if (va < vb) return currentSortOrder === 'asc' ? -1 : 1;
+                if (va > vb) return currentSortOrder === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            // 矢印アイコン更新
+            ['name', 'date'].forEach(k => {
+                const el = document.getElementById('arrow-' + k);
+                if (currentSortKey === k) {
+                    el.textContent = currentSortOrder === 'asc' ? '▲' : '▼';
+                    el.className = 'sort-arrow active';
+                } else {
+                    el.textContent = '↕';
+                    el.className = 'sort-arrow';
+                }
+            });
+
+            // ボタン強調
+            document.getElementById('sortDateBtn').style.background = currentSortKey === 'date' ? '#e3f2fd' : '';
+            document.getElementById('sortNameBtn').style.background = currentSortKey === 'name' ? '#e3f2fd' : '';
+            document.getElementById('sortOrderLabel').textContent =
+                (currentSortKey === 'date' ? '保存日時' : 'ファイル名') + '：' +
+                (currentSortOrder === 'desc' ? '新しい順 ▼' : '古い順 ▲');
+
+            // 行レンダリング
+            tbody.innerHTML = sorted.map(f => `
+                <tr>
+                    <td>
+                        <a class="pdf-name-link" href="${f.url}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(f.name)}">
+                            📄 ${escapeHtml(f.name)}
+                        </a>
+                    </td>
+                    <td style="color:#555; font-size:13px;">${escapeHtml(f.createdDate)}</td>
+                    <td>
+                        <button class="btn-open" onclick="window.open('${f.url}', '_blank')">開く</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
     </script>
 </body>
 </html>
