@@ -153,23 +153,28 @@
         .card.wide { max-width: 860px; }
 
         .pdf-item {
+            border: 1px solid #e0e0e0;
+            border-left: 4px solid #1976d2;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            background: white;
+            overflow: hidden;
+            transition: box-shadow 0.15s;
+        }
+        .pdf-item:hover { box-shadow: 0 2px 12px rgba(25,118,210,0.12); }
+
+        /* 上段：ファイル名＋ボタン */
+        .pdf-header {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 12px 14px;
-            border: 1px solid #e8e8e8;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            background: #fafafa;
-            transition: background 0.15s;
+            gap: 10px;
+            padding: 12px 16px 10px;
         }
-        .pdf-item:hover { background: #f0f4ff; border-color: #90caf9; }
 
         .pdf-icon { font-size: 20px; flex-shrink: 0; }
 
-        .pdf-info { flex: 1; min-width: 0; }
-
         .pdf-name {
+            flex: 1;
             font-weight: bold;
             font-size: 14px;
             color: #1976d2;
@@ -177,18 +182,62 @@
             overflow: hidden;
             text-overflow: ellipsis;
             text-decoration: none;
+            min-width: 0;
         }
         .pdf-name:hover { text-decoration: underline; }
 
-        .pdf-date { font-size: 12px; color: #888; margin-top: 2px; }
-
         .pdf-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+        /* 下段：ユーザーID＋日時 */
+        .pdf-meta {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 8px 16px 10px;
+            border-top: 1px solid #f0f0f0;
+            background: #fafafa;
+            flex-wrap: wrap;
+        }
+
+        .pdf-meta-user {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #fff3e0;
+            color: #bf360c;
+            border: 1px solid #ffcc80;
+            border-radius: 6px;
+            padding: 4px 12px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .pdf-meta-user .label {
+            font-weight: normal;
+            color: #999;
+            font-size: 11px;
+        }
+        .pdf-meta-user-empty {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #bbb;
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        .pdf-meta-date {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #666;
+            font-size: 12px;
+        }
 
         .btn-open {
             background: #1976d2;
             color: white;
             border: none;
-            padding: 6px 16px;
+            padding: 6px 14px;
             border-radius: 6px;
             font-size: 12px;
             font-weight: bold;
@@ -202,7 +251,7 @@
             background: #e8f5e9;
             color: #2e7d32;
             border: 1.5px solid #a5d6a7;
-            padding: 6px 16px;
+            padding: 6px 14px;
             border-radius: 6px;
             font-size: 12px;
             font-weight: bold;
@@ -215,19 +264,6 @@
             gap: 4px;
         }
         .btn-download:hover { background: #c8e6c9; }
-
-        .user-badge {
-            display: inline-block;
-            background: #fff3e0;
-            color: #e65100;
-            border: 1px solid #ffcc80;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: bold;
-            padding: 1px 8px;
-            margin-left: 6px;
-            vertical-align: middle;
-        }
 
         #pdfCount {
             font-size: 13px;
@@ -650,27 +686,30 @@
             sorted.forEach(f => {
                 const safeName    = f.name.replace(/</g,'&lt;').replace(/>/g,'&gt;');
                 const safeDate    = f.createdDate.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                const safeUserId  = (f.userId || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
                 const downloadUrl = `https://drive.google.com/uc?export=download&id=${f.id || ''}`;
 
                 const item = document.createElement('div');
                 item.className = 'pdf-item';
 
-                const badgeHtml = f.userId
-                    ? `<span class="user-badge">👤 ${f.userId.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`
-                    : '';
+                const userHtml = safeUserId
+                    ? `<span class="pdf-meta-user">
+                           <span class="label">保存者</span> 👤 ${safeUserId}
+                       </span>`
+                    : `<span class="pdf-meta-user-empty">👤 ユーザー不明</span>`;
 
                 item.innerHTML = `
-                    <div class="pdf-icon">📄</div>
-                    <div class="pdf-info">
-                        <div>
-                            <a class="pdf-name" href="${f.url}" target="_blank" rel="noopener noreferrer">${safeName}</a>
-                            ${badgeHtml}
+                    <div class="pdf-header">
+                        <span class="pdf-icon">📄</span>
+                        <a class="pdf-name" href="${f.url}" target="_blank" rel="noopener noreferrer">${safeName}</a>
+                        <div class="pdf-actions">
+                            <button class="btn-open" onclick="window.open(this.dataset.url,'_blank')" data-url="${f.url}">開く</button>
+                            <a class="btn-download" href="${downloadUrl}" download="${safeName}">⬇ ダウンロード</a>
                         </div>
-                        <div class="pdf-date">🕐 ${safeDate}</div>
                     </div>
-                    <div class="pdf-actions">
-                        <button class="btn-open" onclick="window.open(this.dataset.url,'_blank')" data-url="${f.url}">開く</button>
-                        <a class="btn-download" href="${downloadUrl}" download="${safeName}">⬇ ダウンロード</a>
+                    <div class="pdf-meta">
+                        ${userHtml}
+                        <span class="pdf-meta-date">🕐 ${safeDate}</span>
                     </div>`;
                 fragment.appendChild(item);
             });
