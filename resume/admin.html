@@ -148,6 +148,118 @@
             font-size: 12px;
             font-weight: bold;
         }
+
+        /* PDF一覧 */
+        .card.wide { max-width: 860px; }
+
+        .pdf-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border: 1px solid #e8e8e8;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            background: #fafafa;
+            transition: background 0.15s;
+        }
+        .pdf-item:hover { background: #f0f4ff; border-color: #90caf9; }
+
+        .pdf-icon { font-size: 20px; flex-shrink: 0; }
+
+        .pdf-info { flex: 1; min-width: 0; }
+
+        .pdf-name {
+            font-weight: bold;
+            font-size: 14px;
+            color: #1976d2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-decoration: none;
+        }
+        .pdf-name:hover { text-decoration: underline; }
+
+        .pdf-date { font-size: 12px; color: #888; margin-top: 2px; }
+
+        .pdf-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+        .btn-open {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: 'Noto Sans JP', sans-serif;
+            transition: background 0.2s;
+        }
+        .btn-open:hover { background: #1565c0; }
+
+        .btn-download {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1.5px solid #a5d6a7;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: 'Noto Sans JP', sans-serif;
+            transition: background 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .btn-download:hover { background: #c8e6c9; }
+
+        .user-badge {
+            display: inline-block;
+            background: #fff3e0;
+            color: #e65100;
+            border: 1px solid #ffcc80;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 1px 8px;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        #pdfCount {
+            font-size: 13px;
+            color: #888;
+            margin-left: 4px;
+            font-weight: normal;
+        }
+
+        .sort-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .sort-btn {
+            border: 1.5px solid #ddd;
+            background: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            font-family: 'Noto Sans JP', sans-serif;
+            transition: all 0.15s;
+            color: #555;
+        }
+        .sort-btn:hover { border-color: #1976d2; color: #1976d2; }
+        .sort-btn.active { background: #1976d2; color: white; border-color: #1976d2; }
+
+        #pdfList { margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -232,6 +344,26 @@
             <div class="msg" id="deleteMsg"></div>
         </div>
 
+        <!-- 保存済みPDF一覧 -->
+        <div class="card wide">
+            <div class="card-title">
+                📁 保存済みPDF一覧
+                <span id="pdfCount"></span>
+                <button class="btn btn-gray" onclick="loadFiles()" style="font-size:12px; padding:4px 12px; margin-left:auto;">🔄 更新</button>
+            </div>
+
+            <div class="sort-bar">
+                並び替え：
+                <button class="sort-btn active" id="sortDateBtn" onclick="sortFiles('date')">📅 新しい順</button>
+                <button class="sort-btn"        id="sortDateAscBtn" onclick="sortFiles('dateAsc')">📅 古い順</button>
+                <button class="sort-btn"        id="sortNameBtn" onclick="sortFiles('name')">🔤 ファイル名順</button>
+            </div>
+
+            <div id="pdfList">
+                <div style="text-align:center; color:#aaa; padding:24px;">読み込み中...</div>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -270,6 +402,7 @@
                     document.getElementById('loginSection').style.display = 'none';
                     document.getElementById('adminSection').style.display  = 'block';
                     loadUsers();
+                    loadFiles();
                 } else {
                     showMsg('loginMsg', data.error || 'ログインに失敗しました', 'error');
                 }
@@ -443,8 +576,96 @@
                 document.getElementById('loginSection').style.display = 'none';
                 document.getElementById('adminSection').style.display  = 'block';
                 loadUsers();
+                loadFiles();
             }
         };
+
+        // ==============================
+        // PDF一覧の読み込み・表示
+        // ==============================
+        let allFiles    = [];
+        let currentSort = 'date'; // 'date' | 'dateAsc' | 'name'
+
+        async function loadFiles() {
+            const list = document.getElementById('pdfList');
+            if (!list) return;
+            list.innerHTML = '<div style="text-align:center; color:#aaa; padding:24px;">読み込み中...</div>';
+            document.getElementById('pdfCount').textContent = '';
+
+            try {
+                const res = await fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    redirect: 'follow',
+                    body: JSON.stringify({ action: 'listFiles', sessionToken: adminToken }),
+                });
+                const data = await res.json();
+
+                if (!data.success) {
+                    list.innerHTML = `<div style="text-align:center; color:#e53935; padding:24px;">⚠️ ${data.error || 'エラーが発生しました'}</div>`;
+                    return;
+                }
+
+                allFiles = data.files || [];
+                document.getElementById('pdfCount').textContent = `（${allFiles.length} 件）`;
+                renderFiles();
+
+            } catch (e) {
+                list.innerHTML = '<div style="text-align:center; color:#e53935; padding:24px;">⚠️ 通信エラーが発生しました</div>';
+            }
+        }
+
+        function sortFiles(key) {
+            currentSort = key;
+            // ボタンのactive切替
+            ['sortDateBtn','sortDateAscBtn','sortNameBtn'].forEach(id => {
+                document.getElementById(id).classList.remove('active');
+            });
+            document.getElementById(key === 'date' ? 'sortDateBtn' : key === 'dateAsc' ? 'sortDateAscBtn' : 'sortNameBtn').classList.add('active');
+            renderFiles();
+        }
+
+        function renderFiles() {
+            const list = document.getElementById('pdfList');
+            if (!list) return;
+
+            if (allFiles.length === 0) {
+                list.innerHTML = '<div style="text-align:center; color:#aaa; padding:24px;">保存済みPDFはありません</div>';
+                return;
+            }
+
+            const sorted = [...allFiles].sort((a, b) => {
+                if (currentSort === 'date')    return b.createdDate.localeCompare(a.createdDate);
+                if (currentSort === 'dateAsc') return a.createdDate.localeCompare(b.createdDate);
+                return a.name.localeCompare(b.name, 'ja');
+            });
+
+            list.innerHTML = sorted.map(f => {
+                const safeName     = f.name.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                const safeDate     = f.createdDate.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                const safeUrl      = f.url.replace(/"/g,'&quot;');
+                const safeId       = (f.id || '').replace(/"/g,'&quot;');
+                const downloadUrl  = `https://drive.google.com/uc?export=download&id=${safeId}`;
+                const userBadge    = f.userId
+                    ? `<span class="user-badge">👤 ${f.userId.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`
+                    : '';
+                return `
+                <div class="pdf-item">
+                    <div class="pdf-icon">📄</div>
+                    <div class="pdf-info">
+                        <div>
+                            <a class="pdf-name" href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeName}</a>
+                            ${userBadge}
+                        </div>
+                        <div class="pdf-date">🕐 ${safeDate}</div>
+                    </div>
+                    <div class="pdf-actions">
+                        <button class="btn-open" onclick="window.open('${safeUrl}','_blank')">開く</button>
+                        <a class="btn-download" href="${downloadUrl}" download="${safeName}">⬇ ダウンロード</a>
+                    </div>
+                </div>`;
+            }).join('');
+        }
     </script>
 </body>
 </html>
