@@ -608,12 +608,15 @@
             btn.disabled = true;
             btn.textContent = 'PDF生成中...';
 
-            // ブラウザにUI更新を先に反映させてからheavy処理を開始（INP対策）
-            await new Promise(resolve => setTimeout(resolve, 80));
+            // ① ボタン状態をブラウザに描画させる（INP対策）
+            await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
 
             // 閲覧モードに切替（編集用の黄色背景・点線を消す）
             const current = document.body.classList.contains('edit-mode') ? 'edit' : 'lock';
             setMode('lock');
+
+            // ② モード切替のDOM変更をブラウザに描画させてからheavy処理を開始（INP対策）
+            await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
 
             try {
                 const target = document.getElementById('resumeContent');
