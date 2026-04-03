@@ -615,13 +615,18 @@
             }
         }
 
-        function sortFiles(key) {
+        async function sortFiles(key) {
             currentSort = key;
-            // ボタンのactive切替
+            // ① ボタンのactive切替をまず画面に反映させる（INP対策）
             ['sortDateBtn','sortDateAscBtn','sortNameBtn'].forEach(id => {
                 document.getElementById(id).classList.remove('active');
             });
-            document.getElementById(key === 'date' ? 'sortDateBtn' : key === 'dateAsc' ? 'sortDateAscBtn' : 'sortNameBtn').classList.add('active');
+            document.getElementById(
+                key === 'date'    ? 'sortDateBtn'    :
+                key === 'dateAsc' ? 'sortDateAscBtn' : 'sortNameBtn'
+            ).classList.add('active');
+            // ② ブラウザに描画を完了させてから重い処理を開始（INP対策）
+            await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
             renderFiles();
         }
 
@@ -640,31 +645,38 @@
                 return a.name.localeCompare(b.name, 'ja');
             });
 
-            list.innerHTML = sorted.map(f => {
-                const safeName     = f.name.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                const safeDate     = f.createdDate.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                const safeUrl      = f.url.replace(/"/g,'&quot;');
-                const safeId       = (f.id || '').replace(/"/g,'&quot;');
-                const downloadUrl  = `https://drive.google.com/uc?export=download&id=${safeId}`;
-                const userBadge    = f.userId
+            // DocumentFragment で DOM 操作を1回にまとめる（INP対策）
+            const fragment = document.createDocumentFragment();
+            sorted.forEach(f => {
+                const safeName    = f.name.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                const safeDate    = f.createdDate.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                const downloadUrl = `https://drive.google.com/uc?export=download&id=${f.id || ''}`;
+
+                const item = document.createElement('div');
+                item.className = 'pdf-item';
+
+                const badgeHtml = f.userId
                     ? `<span class="user-badge">👤 ${f.userId.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`
                     : '';
-                return `
-                <div class="pdf-item">
+
+                item.innerHTML = `
                     <div class="pdf-icon">📄</div>
                     <div class="pdf-info">
                         <div>
-                            <a class="pdf-name" href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeName}</a>
-                            ${userBadge}
+                            <a class="pdf-name" href="${f.url}" target="_blank" rel="noopener noreferrer">${safeName}</a>
+                            ${badgeHtml}
                         </div>
                         <div class="pdf-date">🕐 ${safeDate}</div>
                     </div>
                     <div class="pdf-actions">
-                        <button class="btn-open" onclick="window.open('${safeUrl}','_blank')">開く</button>
+                        <button class="btn-open" onclick="window.open(this.dataset.url,'_blank')" data-url="${f.url}">開く</button>
                         <a class="btn-download" href="${downloadUrl}" download="${safeName}">⬇ ダウンロード</a>
-                    </div>
-                </div>`;
-            }).join('');
+                    </div>`;
+                fragment.appendChild(item);
+            });
+
+            list.innerHTML = '';           // 一度クリア
+            list.appendChild(fragment);    // 1回の DOM 操作で全挿入
         }
     </script>
 </body>
