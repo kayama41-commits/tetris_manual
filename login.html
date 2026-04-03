@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ログイン | 履歴書</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #f3f4f6;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+
+        .login-card {
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+            padding: 48px 40px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-title {
+            font-size: 22px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 6px;
+            letter-spacing: 0.08em;
+        }
+
+        .login-subtitle {
+            font-size: 13px;
+            text-align: center;
+            color: #999;
+            margin-bottom: 32px;
+        }
+
+        .form-group { margin-bottom: 18px; }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #555;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            border: 1.5px solid #ddd;
+            border-radius: 8px;
+            padding: 11px 14px;
+            font-size: 14px;
+            font-family: 'Noto Sans JP', sans-serif;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus { border-color: #1976d2; }
+
+        .login-btn {
+            width: 100%;
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 13px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 8px;
+            font-family: 'Noto Sans JP', sans-serif;
+            transition: background 0.2s;
+        }
+
+        .login-btn:hover { background: #1565c0; }
+        .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .error-msg {
+            background: #ffebee;
+            color: #c62828;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 13px;
+            margin-top: 16px;
+            display: none;
+            text-align: center;
+        }
+
+        .error-msg.show { display: block; }
+
+        .admin-link {
+            text-align: center;
+            margin-top: 28px;
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        .admin-link a {
+            color: #1976d2;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="login-title">📄 履歴書システム</div>
+        <div class="login-subtitle">ログインしてご利用ください</div>
+
+        <div class="form-group">
+            <label for="userId">ユーザーID</label>
+            <input type="text" id="userId" placeholder="IDを入力" autocomplete="username">
+        </div>
+        <div class="form-group">
+            <label for="password">パスワード</label>
+            <input type="password" id="password" placeholder="パスワードを入力" autocomplete="current-password">
+        </div>
+
+        <button class="login-btn" id="loginBtn" onclick="handleLogin()">ログイン</button>
+
+        <div class="error-msg" id="errorMsg"></div>
+
+        <div class="admin-link">
+            <a href="/admin.html">管理者の方はこちら</a>
+        </div>
+    </div>
+
+    <script>
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzUEkckXl7NafZtsM0bgmYH2NwasulTItwGdy5YoDb_DFlQHc4Mqb4yna7onnzeIAR5/exec';
+
+        // すでにログイン済みなら resume.html へ
+        window.onload = async () => {
+            const token = sessionStorage.getItem('sessionToken');
+            if (!token) return;
+
+            try {
+                const res = await fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    redirect: 'follow',
+                    body: JSON.stringify({ action: 'verify', sessionToken: token }),
+                });
+                const data = await res.json();
+                if (data.success) window.location.href = '/resume.html';
+                else sessionStorage.clear();
+            } catch (e) { /* 通信エラー → ログイン画面のまま */ }
+        };
+
+        async function handleLogin() {
+            const btn      = document.getElementById('loginBtn');
+            const userId   = document.getElementById('userId').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!userId || !password) {
+                showError('IDとパスワードを入力してください');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '確認中...';
+            clearError();
+
+            try {
+                const res = await fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    redirect: 'follow',
+                    body: JSON.stringify({ action: 'login', userId, password }),
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    sessionStorage.setItem('sessionToken', data.token);
+                    sessionStorage.setItem('userId', userId);
+                    window.location.href = '/resume.html';
+                } else {
+                    showError(data.error || 'ログインに失敗しました');
+                }
+            } catch (e) {
+                showError('通信エラーが発生しました');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'ログイン';
+            }
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('errorMsg');
+            el.textContent = msg;
+            el.classList.add('show');
+        }
+
+        function clearError() {
+            document.getElementById('errorMsg').classList.remove('show');
+        }
+
+        // Enterキーでログイン
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Enter') handleLogin();
+        });
+    </script>
+</body>
+</html>

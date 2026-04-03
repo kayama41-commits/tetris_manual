@@ -276,9 +276,36 @@
         }
 
         @media print { #privacyBanner { display: none !important; } }
+
+        /* 認証チェック中のローディングオーバーレイ */
+        #authLoading {
+            position: fixed;
+            inset: 0;
+            background: #f3f4f6;
+            z-index: 20000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            color: #666;
+            gap: 10px;
+        }
+        #authLoading.hidden { display: none; }
+
+        /* ユーザー情報バー */
+        #userBar {
+            font-size: 13px;
+            color: #555;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
     </style>
 </head>
 <body class="edit-mode">
+
+    <!-- 認証チェック中のローディングオーバーレイ -->
+    <div id="authLoading">⏳ 認証確認中...</div>
 
     <!-- 個人情報取り扱いバナー（同意後に常時表示） -->
     <div id="privacyBanner" class="no-print">
@@ -311,6 +338,10 @@
         </div>
         <button onclick="window.print()" class="bg-blue-600 text-white px-6 py-2 rounded-lg shadow hover:bg-blue-700 font-bold">印刷 / PDF保存</button>
         <button id="driveBtn" onclick="saveToDrive()" class="bg-green-600 text-white px-6 py-2 rounded-lg shadow hover:bg-green-700 font-bold">Driveに保存</button>
+        <div id="userBar" class="bg-white px-4 py-2 rounded-lg shadow-md">
+            👤 <span id="userIdDisplay"></span>
+            <button onclick="logout()" class="ml-2 bg-red-500 text-white px-3 py-1 rounded-md text-sm font-bold hover:bg-red-600 transition">ログアウト</button>
+        </div>
     </div>
 
     <div class="resume-page" id="resumeContent">
@@ -628,7 +659,13 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain' },
                     redirect: 'follow',
-                    body: JSON.stringify({ pdfBase64: pdfBase64, fileName: name, token: SECRET_TOKEN }),
+                    body: JSON.stringify({
+                        action: 'savePdf',
+                        pdfBase64: pdfBase64,
+                        fileName: name,
+                        token: SECRET_TOKEN,
+                        sessionToken: sessionStorage.getItem('sessionToken'),
+                    }),
                 });
                 const data = await res.json();
                 if (data.success) {
@@ -786,7 +823,70 @@
             document.getElementById('privacyBanner').classList.add('show');
         }
 
-        window.onload = () => {
+        // ==============================
+        // セッションチェック
+        // ==============================
+        async function checkSession() {
+            const token = sessionStorage.getItem('sessionToken');
+
+            // トークンなし → 即ログインページへ
+            if (!token) {
+                window.location.href = '/login.html';
+                return false;
+            }
+
+            try {
+                const res = await fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    redirect: 'follow',
+                    body: JSON.stringify({ action: 'verify', sessionToken: token }),
+                });
+                const data = await res.json();
+
+                if (!data.success) {
+                    sessionStorage.clear();
+                    window.location.href = '/login.html';
+                    return false;
+                }
+
+                // ユーザーID表示
+                document.getElementById('userIdDisplay').textContent =
+                    sessionStorage.getItem('userId') + ' さん';
+                return true;
+
+            } catch (e) {
+                // 通信エラー時はオフラインとみなしてそのまま利用を許可
+                console.warn('セッション確認エラー（オフライン？）:', e.message);
+                return true;
+            }
+        }
+
+        // ==============================
+        // ログアウト
+        // ==============================
+        async function logout() {
+            const token = sessionStorage.getItem('sessionToken');
+            try {
+                await fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    redirect: 'follow',
+                    body: JSON.stringify({ action: 'logout', sessionToken: token }),
+                });
+            } catch (e) { /* 通信エラーでもログアウト処理は続行 */ }
+
+            sessionStorage.clear();
+            window.location.href = '/login.html';
+        }
+
+        window.onload = async () => {
+            const valid = await checkSession();
+            if (!valid) return;
+
+            // 認証OK → ローディングを非表示にしてコンテンツ表示
+            document.getElementById('authLoading').classList.add('hidden');
+
             setMode('edit');
 
             // 未同意の場合はモーダルを表示、同意済みの場合はバナーのみ表示
