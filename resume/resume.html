@@ -668,6 +668,7 @@
                         fileName: name,
                         token: SECRET_TOKEN,
                         sessionToken: sessionStorage.getItem('sessionToken'),
+                        userId: sessionStorage.getItem('userId'),
                     }),
                 });
                 const data = await res.json();
