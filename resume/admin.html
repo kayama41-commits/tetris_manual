@@ -346,7 +346,7 @@
             <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
                 <div class="form-group" style="flex:1; min-width:140px; margin:0;">
                     <label>ユーザーID</label>
-                    <input type="text" id="newUserId" placeholder="例: user01">
+                    <input type="text" id="newUserID" placeholder="例: user01">
                 </div>
                 <div class="form-group" style="flex:1; min-width:140px; margin:0;">
                     <label>パスワード</label>
@@ -403,7 +403,7 @@
     </div>
 
     <script>
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzUEkckXl7NafZtsM0bgmYH2NwasulTItwGdy5YoDb_DFlQHc4Mqb4yna7onnzeIAR5/exec';
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbwaUoieyqlPlos9ux-MKWz1S8VpdajnnHMGojuCLVwbFOk3BP4StljgPogpjWLxXMoV/exec';
 
         let adminToken = null;
 
@@ -412,10 +412,10 @@
         // ==============================
         async function handleAdminLogin() {
             const btn    = document.getElementById('adminLoginBtn');
-            const userId = document.getElementById('adminId').value.trim();
+            const UserID = document.getElementById('adminId').value.trim();
             const pass   = document.getElementById('adminPass').value;
 
-            if (!userId || !pass) {
+            if (!UserID || !pass) {
                 showMsg('loginMsg', 'IDとパスワードを入力してください', 'error');
                 return;
             }
@@ -428,7 +428,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain' },
                     redirect: 'follow',
-                    body: JSON.stringify({ action: 'adminLogin', userId, password: pass }),
+                    body: JSON.stringify({ action: 'adminLogin', UserID, password: pass }),
                 });
                 const data = await res.json();
 
@@ -478,11 +478,11 @@
 
                 tbody.innerHTML = data.users.map(u => `
                     <tr>
-                        <td><strong>${u.userId}</strong></td>
+                        <td><strong>${u.UserID}</strong></td>
                         <td>${u.createdAt}</td>
                         <td><span class="badge-active">有効</span></td>
                         <td>
-                            <button class="btn btn-danger" onclick="deleteUser('${u.userId}')" style="font-size:12px; padding:4px 12px;">
+                            <button class="btn btn-danger" onclick="deleteUser('${u.UserID}')" style="font-size:12px; padding:4px 12px;">
                                 削除
                             </button>
                         </td>
@@ -498,10 +498,10 @@
         // ユーザー追加
         // ==============================
         async function createUser() {
-            const userId = document.getElementById('newUserId').value.trim();
+            const UserID = document.getElementById('newUserID').value.trim();
             const pass   = document.getElementById('newUserPass').value.trim();
 
-            if (!userId || !pass) {
+            if (!UserID || !pass) {
                 showMsg('createMsg', 'IDとパスワードを入力してください', 'error');
                 return;
             }
@@ -511,13 +511,13 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain' },
                     redirect: 'follow',
-                    body: JSON.stringify({ action: 'createUser', sessionToken: adminToken, userId, password: pass }),
+                    body: JSON.stringify({ action: 'createUser', sessionToken: adminToken, UserID, password: pass }),
                 });
                 const data = await res.json();
 
                 if (data.success) {
-                    showMsg('createMsg', `✅ ユーザー「${userId}」を追加しました`, 'success');
-                    document.getElementById('newUserId').value  = '';
+                    showMsg('createMsg', `✅ ユーザー「${UserID}」を追加しました`, 'success');
+                    document.getElementById('newUserID').value  = '';
                     document.getElementById('newUserPass').value = '';
                     loadUsers();
                 } else {
@@ -531,20 +531,20 @@
         // ==============================
         // ユーザー削除
         // ==============================
-        async function deleteUser(userId) {
-            if (!confirm(`「${userId}」を削除しますか？`)) return;
+        async function deleteUser(UserID) {
+            if (!confirm(`「${UserID}」を削除しますか？`)) return;
 
             try {
                 const res = await fetch(GAS_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain' },
                     redirect: 'follow',
-                    body: JSON.stringify({ action: 'deleteUser', sessionToken: adminToken, userId }),
+                    body: JSON.stringify({ action: 'deleteUser', sessionToken: adminToken, UserID }),
                 });
                 const data = await res.json();
 
                 if (data.success) {
-                    showMsg('deleteMsg', `✅ 「${userId}」を削除しました`, 'success');
+                    showMsg('deleteMsg', `✅ 「${UserID}」を削除しました`, 'success');
                     loadUsers();
                 } else {
                     showMsg('deleteMsg', data.error, 'error');
@@ -686,15 +686,15 @@
             sorted.forEach(f => {
                 const safeName    = f.name.replace(/</g,'&lt;').replace(/>/g,'&gt;');
                 const safeDate    = f.createdDate.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                const safeUserId  = (f.userId || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                const safeUserID  = (f.UserID || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
                 const downloadUrl = `https://drive.google.com/uc?export=download&id=${f.id || ''}`;
 
                 const item = document.createElement('div');
                 item.className = 'pdf-item';
 
-                const userHtml = safeUserId
+                const userHtml = safeUserID
                     ? `<span class="pdf-meta-user">
-                           <span class="label">保存者</span> 👤 ${safeUserId}
+                           <span class="label">保存者</span> 👤 ${safeUserID}
                        </span>`
                     : `<span class="pdf-meta-user-empty">👤 ユーザー不明</span>`;
 
