@@ -412,10 +412,10 @@
         // ==============================
         async function handleAdminLogin() {
             const btn    = document.getElementById('adminLoginBtn');
-            const UserID = document.getElementById('adminId').value.trim();
+            const userId = document.getElementById('adminId').value.trim();
             const pass   = document.getElementById('adminPass').value;
 
-            if (!UserID || !pass) {
+            if (!userId || !pass) {
                 showMsg('loginMsg', 'IDとパスワードを入力してください', 'error');
                 return;
             }
@@ -428,7 +428,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain' },
                     redirect: 'follow',
-                    body: JSON.stringify({ action: 'adminLogin', UserID, password: pass }),
+                    body: JSON.stringify({ action: 'adminLogin', userId, password: pass }),
                 });
                 const data = await res.json();
 
@@ -478,11 +478,11 @@
 
                 tbody.innerHTML = data.users.map(u => `
                     <tr>
-                        <td><strong>${u.UserID}</strong></td>
+                        <td><strong>${u.userId}</strong></td>
                         <td>${u.createdAt}</td>
                         <td><span class="badge-active">有効</span></td>
                         <td>
-                            <button class="btn btn-danger" onclick="deleteUser('${u.UserID}')" style="font-size:12px; padding:4px 12px;">
+                            <button class="btn btn-danger" onclick="deleteUser('${u.userId}')" style="font-size:12px; padding:4px 12px;">
                                 削除
                             </button>
                         </td>
@@ -498,10 +498,10 @@
         // ユーザー追加
         // ==============================
         async function createUser() {
-            const UserID = document.getElementById('newUserID').value.trim();
+            const userId = document.getElementById('newUserID').value.trim();
             const pass   = document.getElementById('newUserPass').value.trim();
 
-            if (!UserID || !pass) {
+            if (!userId || !pass) {
                 showMsg('createMsg', 'IDとパスワードを入力してください', 'error');
                 return;
             }
@@ -511,12 +511,12 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain' },
                     redirect: 'follow',
-                    body: JSON.stringify({ action: 'createUser', sessionToken: adminToken, UserID, password: pass }),
+                    body: JSON.stringify({ action: 'createUser', sessionToken: adminToken, userId, password: pass }),
                 });
                 const data = await res.json();
 
                 if (data.success) {
-                    showMsg('createMsg', `✅ ユーザー「${UserID}」を追加しました`, 'success');
+                    showMsg('createMsg', `✅ ユーザー「${userId}」を追加しました`, 'success');
                     document.getElementById('newUserID').value  = '';
                     document.getElementById('newUserPass').value = '';
                     loadUsers();
@@ -531,20 +531,20 @@
         // ==============================
         // ユーザー削除
         // ==============================
-        async function deleteUser(UserID) {
-            if (!confirm(`「${UserID}」を削除しますか？`)) return;
+        async function deleteUser(userId) {
+            if (!confirm(`「${userId}」を削除しますか？`)) return;
 
             try {
                 const res = await fetch(GAS_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain' },
                     redirect: 'follow',
-                    body: JSON.stringify({ action: 'deleteUser', sessionToken: adminToken, UserID }),
+                    body: JSON.stringify({ action: 'deleteUser', sessionToken: adminToken, userId }),
                 });
                 const data = await res.json();
 
                 if (data.success) {
-                    showMsg('deleteMsg', `✅ 「${UserID}」を削除しました`, 'success');
+                    showMsg('deleteMsg', `✅ 「${userId}」を削除しました`, 'success');
                     loadUsers();
                 } else {
                     showMsg('deleteMsg', data.error, 'error');
@@ -686,7 +686,7 @@
             sorted.forEach(f => {
                 const safeName    = f.name.replace(/</g,'&lt;').replace(/>/g,'&gt;');
                 const safeDate    = f.createdDate.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                const safeUserID  = (f.UserID || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                const safeUserID  = (f.userId || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
                 const downloadUrl = `https://drive.google.com/uc?export=download&id=${f.id || ''}`;
 
                 const item = document.createElement('div');
