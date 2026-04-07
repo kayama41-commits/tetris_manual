@@ -835,7 +835,7 @@
 
             // トークンなし → 即ログインページへ
             if (!token) {
-                window.location.href = '/login.html';
+                window.location.href = '/resume/login.html';
                 return false;
             }
 
@@ -850,7 +850,7 @@
 
                 if (!data.success) {
                     sessionStorage.clear();
-                    window.location.href = '/login.html';
+                    window.location.href = '/resume/login.html';
                     return false;
                 }
 
@@ -881,7 +881,7 @@
             } catch (e) { /* 通信エラーでもログアウト処理は続行 */ }
 
             sessionStorage.clear();
-            window.location.href = '/login.html';
+            window.location.href = '/resume/login.html';
         }
 
         window.onload = async () => {

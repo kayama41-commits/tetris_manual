@@ -114,7 +114,7 @@
 </head>
 <body>
     <div class="login-card">
-        <div class="login-title">📄 履歴書システム</div>
+        <div class="login-title">📄 デジタル履歴書</div>
         <div class="login-subtitle">ログインしてご利用ください</div>
 
         <div class="form-group">
@@ -131,7 +131,7 @@
         <div class="error-msg" id="errorMsg"></div>
 
         <div class="admin-link">
-            <a href="/admin.html">管理者の方はこちら</a>
+            <a href="/resume/admin.html">管理者の方はこちら</a>
         </div>
     </div>
 
@@ -151,7 +151,7 @@
                     body: JSON.stringify({ action: 'verify', sessionToken: token }),
                 });
                 const data = await res.json();
-                if (data.success) window.location.href = '/resume.html';
+                if (data.success) window.location.href = '/resume/resume.html';
                 else sessionStorage.clear();
             } catch (e) { /* 通信エラー → ログイン画面のまま */ }
         };
@@ -182,7 +182,7 @@
                 if (data.success) {
                     sessionStorage.setItem('sessionToken', data.token);
                     sessionStorage.setItem('userId', userId);
-                    window.location.href = '/resume.html';
+                    window.location.href = '/resume/resume.html';
                 } else {
                     showError(data.error || 'ログインに失敗しました');
                 }
