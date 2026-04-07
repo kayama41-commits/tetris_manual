@@ -296,6 +296,47 @@
         .sort-btn.active { background: #1976d2; color: white; border-color: #1976d2; }
 
         #pdfList { margin-top: 4px; }
+
+        /* ユーザー一覧スクロール */
+        .user-table-wrap {
+            max-height: 320px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        .user-table-wrap table { margin-top: 0; }
+        .user-table-wrap th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #f5f5f5;
+        }
+
+        /* ページネーション */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        .page-btn {
+            border: 1.5px solid #ddd;
+            background: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            font-family: 'Noto Sans JP', sans-serif;
+            transition: all 0.15s;
+            color: #555;
+            min-width: 36px;
+            text-align: center;
+        }
+        .page-btn:hover:not(:disabled) { border-color: #1976d2; color: #1976d2; }
+        .page-btn.active { background: #1976d2; color: white; border-color: #1976d2; cursor: default; }
+        .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -364,19 +405,21 @@
                 👥 ユーザー一覧
                 <button class="btn btn-gray" onclick="loadUsers()" style="font-size:12px; padding:4px 12px; margin-left:auto;">🔄 更新</button>
             </div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ユーザーID</th>
-                        <th>登録日時</th>
-                        <th>状態</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody id="userTableBody">
-                    <tr><td colspan="4" style="text-align:center; color:#aaa; padding:20px;">読み込み中...</td></tr>
-                </tbody>
-            </table>
+            <div class="user-table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ユーザーID</th>
+                            <th>登録日時</th>
+                            <th>状態</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody">
+                        <tr><td colspan="4" style="text-align:center; color:#aaa; padding:20px;">読み込み中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
             <div class="msg" id="deleteMsg"></div>
         </div>
 
@@ -398,6 +441,7 @@
             <div id="pdfList">
                 <div style="text-align:center; color:#aaa; padding:24px;">読み込み中...</div>
             </div>
+            <div id="pdfPagination" class="pagination"></div>
         </div>
 
     </div>
@@ -619,8 +663,10 @@
         // ==============================
         // PDF一覧の読み込み・表示
         // ==============================
-        let allFiles    = [];
-        let currentSort = 'date'; // 'date' | 'dateAsc' | 'name'
+        let allFiles       = [];
+        let currentSort    = 'date'; // 'date' | 'dateAsc' | 'name'
+        let currentPage    = 1;
+        const ITEMS_PER_PAGE = 10;
 
         async function loadFiles() {
             const list = document.getElementById('pdfList');
@@ -643,6 +689,7 @@
                 }
 
                 allFiles = data.files || [];
+                currentPage = 1;
                 document.getElementById('pdfCount').textContent = `（${allFiles.length} 件）`;
                 renderFiles();
 
@@ -663,6 +710,7 @@
             ).classList.add('active');
             // ② ブラウザに描画を完了させてから重い処理を開始（INP対策）
             await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
+            currentPage = 1;
             renderFiles();
         }
 
@@ -672,6 +720,7 @@
 
             if (allFiles.length === 0) {
                 list.innerHTML = '<div style="text-align:center; color:#aaa; padding:24px;">保存済みPDFはありません</div>';
+                document.getElementById('pdfPagination').innerHTML = '';
                 return;
             }
 
@@ -681,9 +730,16 @@
                 return a.name.localeCompare(b.name, 'ja');
             });
 
+            const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1)          currentPage = 1;
+
+            const start  = (currentPage - 1) * ITEMS_PER_PAGE;
+            const paged  = sorted.slice(start, start + ITEMS_PER_PAGE);
+
             // DocumentFragment で DOM 操作を1回にまとめる（INP対策）
             const fragment = document.createDocumentFragment();
-            sorted.forEach(f => {
+            paged.forEach(f => {
                 const safeName    = f.name.replace(/</g,'&lt;').replace(/>/g,'&gt;');
                 const safeDate    = f.createdDate.replace(/</g,'&lt;').replace(/>/g,'&gt;');
                 const safeUserID  = (f.userId || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -716,6 +772,52 @@
 
             list.innerHTML = '';           // 一度クリア
             list.appendChild(fragment);    // 1回の DOM 操作で全挿入
+
+            renderPagination(totalPages);
+        }
+
+        function goToPage(n) {
+            currentPage = n;
+            renderFiles();
+            // ページ上部へスクロール
+            document.getElementById('pdfList').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function renderPagination(totalPages) {
+            const container = document.getElementById('pdfPagination');
+            if (totalPages <= 1) { container.innerHTML = ''; return; }
+
+            const btns = [];
+
+            // 前へ
+            btns.push(`<button class="page-btn" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>◀ 前へ</button>`);
+
+            // ページ番号（最大7個表示、省略あり）
+            const range = pageRange(currentPage, totalPages);
+            let prev = null;
+            range.forEach(p => {
+                if (prev !== null && p - prev > 1) {
+                    btns.push(`<span style="color:#aaa; font-size:13px; padding:0 4px;">…</span>`);
+                }
+                btns.push(`<button class="page-btn ${p === currentPage ? 'active' : ''}" onclick="goToPage(${p})">${p}</button>`);
+                prev = p;
+            });
+
+            // 次へ
+            btns.push(`<button class="page-btn" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>次へ ▶</button>`);
+
+            container.innerHTML = btns.join('');
+        }
+
+        // 表示するページ番号の配列を返す（最大7件）
+        function pageRange(current, total) {
+            if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+            const pages = new Set([1, total, current]);
+            for (let d = 1; d <= 2; d++) {
+                if (current - d >= 1)     pages.add(current - d);
+                if (current + d <= total) pages.add(current + d);
+            }
+            return [...pages].sort((a, b) => a - b);
         }
     </script>
 </body>
